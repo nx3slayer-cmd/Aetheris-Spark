@@ -42,6 +42,9 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
 
     val currentTheme by viewModel.currentTheme.collectAsState()
     val downloadStates by viewModel.modelManager.downloadStates.collectAsState()
+    val activeLlmId by viewModel.modelManager.activeLlmId.collectAsState()
+    val activeImageId by viewModel.modelManager.activeImageModelId.collectAsState()
+    val activeTtsId by viewModel.modelManager.activeTtsId.collectAsState()
 
     var activeIconStyle by remember { mutableStateOf(AppIconManager.getActiveAppIcon(context)) }
     var memoryAllocationMB by remember { mutableFloatStateOf(1024f) }
@@ -73,7 +76,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 2. Hugging Face Access Token Bento (For Gated/Private Models)
+        // 2. Hugging Face Access Token Bento
         item {
             Column(
                 modifier = Modifier
@@ -101,7 +104,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                         }
                     )
                 }
-                Text(text = "Optional. Paste your 'hf_...' token to download gated or private models directly.", fontSize = 11.sp, color = colors.textSecondary)
+                Text(text = "Optional. Paste your 'hf_...' token to download gated models directly.", fontSize = 11.sp, color = colors.textSecondary)
 
                 Box(
                     modifier = Modifier
@@ -130,11 +133,18 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 3. Catalog Models
+        // 3. Catalog Model Items with Real Active State Badges
         items(ModelCatalog.curatedModels, key = { it.id }) { model ->
+            val isActive = when (model.category) {
+                com.kallistocore.ai.data.models.ModelCategory.CHAT_LLM -> activeLlmId == model.id
+                com.kallistocore.ai.data.models.ModelCategory.IMAGE_GEN_AND_EDIT -> activeImageId == model.id
+                com.kallistocore.ai.data.models.ModelCategory.VOICE_TTS -> activeTtsId == model.id
+            }
+
             ModelHubCard(
                 model = model,
                 viewModel = viewModel,
+                isActive = isActive,
                 downloadProgress = downloadStates[model.id],
                 onOpenHf = {
                     val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(model.hfRepoUrl))
@@ -299,6 +309,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
 fun ModelHubCard(
     model: AIModelInfo,
     viewModel: CompanionViewModel,
+    isActive: Boolean,
     downloadProgress: ModelDownloadProgress?,
     onOpenHf: () -> Unit
 ) {
@@ -312,8 +323,12 @@ fun ModelHubCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(colors.surface)
-            .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+            .background(if (isActive) colors.surfaceVariant else colors.surface)
+            .border(
+                width = if (isActive) 1.5.dp else 1.dp,
+                color = if (isActive) colors.statusSuccess else colors.border,
+                shape = RoundedCornerShape(20.dp)
+            )
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -323,14 +338,26 @@ fun ModelHubCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = model.name, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(text = model.name, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                    if (isActive) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(colors.statusSuccess.copy(alpha = 0.2f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(text = "ACTIVE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.statusSuccess)
+                        }
+                    }
+                }
                 Text(text = model.description, fontSize = 11.5.sp, color = colors.textSecondary, lineHeight = 15.sp)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(colors.surfaceVariant)
+                    .background(colors.surface)
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(text = model.formattedSize, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.accentWave)
@@ -360,7 +387,6 @@ fun ModelHubCard(
             }
         }
 
-        // Error message banner if download failed
         if (isFailed && downloadProgress?.errorMessage != null) {
             Box(
                 modifier = Modifier
@@ -369,16 +395,10 @@ fun ModelHubCard(
                     .background(colors.error.copy(alpha = 0.12f))
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
-                Text(
-                    text = downloadProgress.errorMessage,
-                    fontSize = 11.sp,
-                    color = colors.error,
-                    lineHeight = 15.sp
-                )
+                Text(text = downloadProgress.errorMessage, fontSize = 11.sp, color = colors.error, lineHeight = 15.sp)
             }
         }
 
-        // Real-time progress bar with byte metrics
         if (isDownloading && downloadProgress != null) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -387,12 +407,7 @@ fun ModelHubCard(
                         fontSize = 11.sp,
                         color = colors.textSecondary
                     )
-                    Text(
-                        text = "${(downloadProgress.progress * 100).toInt()}%",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.primary
-                    )
+                    Text(text = "${(downloadProgress.progress * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.primary)
                 }
                 LinearProgressIndicator(
                     progress = { downloadProgress.progress },
@@ -403,7 +418,7 @@ fun ModelHubCard(
             }
         }
 
-        // Action Buttons: Resume / Download / Cancel / Delete
+        // Action Buttons: Active Indicator / Select / Delete / Download
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -411,11 +426,20 @@ fun ModelHubCard(
         ) {
             if (isDownloaded) {
                 Button(
-                    onClick = { viewModel.modelManager.autoSelectActiveModel(model) },
+                    onClick = { viewModel.modelManager.selectActiveModel(model) },
                     modifier = Modifier.weight(1f).height(38.dp).clip(RoundedCornerShape(10.dp)),
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isActive) colors.statusSuccess else colors.primary
+                    )
                 ) {
-                    Text("Select as Active", fontSize = 12.sp, color = colors.onPrimary)
+                    Icon(
+                        imageVector = if (isActive) Icons.Rounded.CheckCircle else Icons.Rounded.PowerSettingsNew,
+                        contentDescription = "Active",
+                        tint = colors.onPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = if (isActive) "Active Engine" else "Select as Active", fontSize = 12.sp, color = colors.onPrimary)
                 }
 
                 Button(
@@ -444,12 +468,7 @@ fun ModelHubCard(
                     modifier = Modifier.fillMaxWidth().height(38.dp).clip(RoundedCornerShape(10.dp)),
                     colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                 ) {
-                    Icon(
-                        imageVector = if (hasPartial) Icons.Rounded.PlayArrow else Icons.Rounded.Download,
-                        contentDescription = "Download",
-                        tint = colors.onPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(imageVector = if (hasPartial) Icons.Rounded.PlayArrow else Icons.Rounded.Download, contentDescription = "Download", tint = colors.onPrimary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (hasPartial) "Resume Download (${(downloadProgress!!.progress * 100).toInt()}%)" else "Download Model (${model.formattedSize})",

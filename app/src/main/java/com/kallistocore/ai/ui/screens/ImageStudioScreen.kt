@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,12 +40,14 @@ import com.kallistocore.ai.domain.image.ImageGenState
 import com.kallistocore.ai.ui.theme.LocalKallistoColors
 import com.kallistocore.ai.ui.viewmodel.CompanionViewModel
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun ImageStudioScreen(viewModel: CompanionViewModel) {
     val colors = LocalKallistoColors.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
     val progressState by viewModel.imageProgressState.collectAsState()
     val sourceBitmap by viewModel.selectedSourceImage.collectAsState()
@@ -60,6 +63,13 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
     val isGenerating = progressState.state == ImageGenState.PREPROCESSING ||
             progressState.state == ImageGenState.DENOISING_STEPS ||
             progressState.state == ImageGenState.POSTPROCESSING
+
+    // Auto-scroll to result when completed
+    LaunchedEffect(progressState.generatedFile) {
+        if (progressState.generatedFile != null) {
+            listState.animateScrollToItem(index = 2)
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -81,8 +91,8 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Main Scrollable Area
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -90,7 +100,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(top = 10.dp, bottom = 14.dp)
         ) {
-            // Header Card
+            // Header Info Card
             item {
                 Column(
                     modifier = Modifier
@@ -106,10 +116,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(imageVector = Icons.Rounded.Brush, contentDescription = "Studio", tint = colors.primary, modifier = Modifier.size(20.dp))
                             Text(
                                 text = if (sourceBitmap != null) "Img2Img & AI Upscale Studio" else "Text-to-Image Studio",
@@ -133,14 +140,14 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                         }
                     }
                     Text(
-                        text = if (sourceBitmap != null) "Transform, stylize, or AI-upscale your loaded image with custom resolution." else "Generate visuals from text with customizable aspect ratios and resolution tiers.",
+                        text = if (sourceBitmap != null) "Transform or AI-upscale your photo with custom styles & resolution." else "Generate artwork from prompts with customizable aspect ratios and resolution tiers.",
                         fontSize = 12.sp,
                         color = colors.textSecondary
                     )
                 }
             }
 
-            // Source Photo Attachment Card
+            // Source Photo Picker Card
             item {
                 Box(
                     modifier = Modifier
@@ -159,10 +166,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AsyncImage(
                                     model = sourceBitmap,
                                     contentDescription = "Source",
@@ -173,7 +177,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                                 )
                                 Column {
                                     Text(text = "Photo Loaded (${sourceBitmap!!.width}x${sourceBitmap!!.height})", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
-                                    Text(text = "Slide tools below for 1:1, ratio, or AI upscale", fontSize = 11.sp, color = colors.textSecondary)
+                                    Text(text = "Slide tools below for ratio, 1:1, or AI upscale", fontSize = 11.sp, color = colors.textSecondary)
                                 }
                             }
                             IconButton(onClick = { viewModel.selectedSourceImage.value = null }) {
@@ -181,10 +185,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                             }
                         }
                     } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(imageVector = Icons.Rounded.AddPhotoAlternate, contentDescription = "Import", tint = colors.primary, modifier = Modifier.size(26.dp))
                             Column {
                                 Text(text = "Tap to load photo for Img2Img & Upscale", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colors.textPrimary)
@@ -195,7 +196,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
 
-            // Live Progress & Result Card
+            // Live Progress & Prominent Result Display Card
             if (progressState.generatedFile != null || isGenerating) {
                 item {
                     Column(
@@ -205,17 +206,30 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                             .background(colors.surface)
                             .border(1.dp, colors.border, RoundedCornerShape(20.dp))
                             .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (isGenerating) "Synthesizing (${progressState.outputDimensions})..." else "Result Artwork (${progressState.outputDimensions})", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
-                            Text(text = "${(progressState.progressFraction * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.accentWave)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isGenerating) progressState.stepDescription else "Result: ${progressState.outputDimensions}",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.textPrimary
+                            )
+                            Text(
+                                text = "${(progressState.progressFraction * 100).toInt()}%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.accentWave
+                            )
                         }
 
                         if (isGenerating) {
                             LinearProgressIndicator(
                                 progress = { progressState.progressFraction },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(CircleShape),
                                 color = colors.primary,
                                 trackColor = colors.surfaceVariant
                             )
@@ -223,21 +237,44 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
 
                         if (progressState.generatedFile != null) {
                             AsyncImage(
-                                model = progressState.generatedFile,
-                                contentDescription = "Result",
+                                model = File(progressState.generatedFile!!.absolutePath),
+                                contentDescription = "Rendered Result",
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(260.dp)
+                                    .height(280.dp)
                                     .clip(RoundedCornerShape(14.dp)),
                                 contentScale = ContentScale.Fit
                             )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        viewModel.sendMessage(
+                                            userText = if (promptText.isNotBlank()) promptText else "Edited photo",
+                                            sourceImage = null
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
+                                ) {
+                                    Icon(imageVector = Icons.Rounded.Send, contentDescription = "Chat", tint = colors.onPrimary, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Send to Chat", fontSize = 12.sp, color = colors.onPrimary)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Horizontal Sliding Tool Tray & Prompt Bar (Pinned to Bottom)
+        // Horizontal Sliding Tool Tray & Prompt Input Bar (Pinned to Bottom)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = colors.background
@@ -248,7 +285,6 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                     .padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Horizontal Slideable Tools Carousel
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -257,65 +293,39 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (sourceBitmap != null) {
-                        // 1. Img2Img: 1:1 Square Lock vs Native Ratio
-                        ToolTrayPill(
-                            label = "1:1 Square Crop",
-                            isSelected = isSquareCrop,
-                            onClick = { viewModel.forceSquareCrop.value = !isSquareCrop }
-                        )
+                        ToolTrayPill(label = "1:1 Square Lock", isSelected = isSquareCrop, onClick = { viewModel.forceSquareCrop.value = !isSquareCrop })
 
-                        // 2. Img2Img: AI Resolution & Upscaler Multiplier
                         listOf(
-                            "0.75x Downscale" to 0.75f,
+                            "0.75x Scale" to 0.75f,
                             "1.0x Match" to 1.0f,
                             "1.5x HD Scale" to 1.5f,
                             "2.0x AI Upscale" to 2.0f
                         ).forEach { (label, multiplier) ->
-                            ToolTrayPill(
-                                label = label,
-                                isSelected = upscaleMultiplier == multiplier,
-                                onClick = { viewModel.img2imgUpscaleMultiplier.value = multiplier }
-                            )
+                            ToolTrayPill(label = label, isSelected = upscaleMultiplier == multiplier, onClick = { viewModel.img2imgUpscaleMultiplier.value = multiplier })
                         }
 
-                        // 3. Img2Img: Strength
                         listOf(
                             "30% Subtle" to 0.3f,
                             "60% Balanced" to 0.6f,
-                            "85% Heavy Edit" to 0.85f
+                            "85% Stylized" to 0.85f
                         ).forEach { (label, str) ->
-                            ToolTrayPill(
-                                label = label,
-                                isSelected = strength == str,
-                                onClick = { viewModel.img2imgStrength.value = str }
-                            )
+                            ToolTrayPill(label = label, isSelected = strength == str, onClick = { viewModel.img2imgStrength.value = str })
                         }
                     } else {
-                        // 1. Text2Img: Aspect Ratio Options
                         AspectRatioOption.values().forEach { ratio ->
-                            ToolTrayPill(
-                                label = ratio.label,
-                                isSelected = activeAspectRatio == ratio,
-                                onClick = { viewModel.selectedAspectRatio.value = ratio }
-                            )
+                            ToolTrayPill(label = ratio.label, isSelected = activeAspectRatio == ratio, onClick = { viewModel.selectedAspectRatio.value = ratio })
                         }
 
-                        // 2. Text2Img: Resolution Tiers
                         listOf(
                             "512p Fast" to 512,
                             "768p HD" to 768,
                             "1024p Z-Turbo" to 1024
                         ).forEach { (label, res) ->
-                            ToolTrayPill(
-                                label = label,
-                                isSelected = baseResolution == res,
-                                onClick = { viewModel.selectedBaseResolution.value = res }
-                            )
+                            ToolTrayPill(label = label, isSelected = baseResolution == res, onClick = { viewModel.selectedBaseResolution.value = res })
                         }
                     }
                 }
 
-                // Prompt Input & Generate Button Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -332,12 +342,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                             .clip(CircleShape)
                             .background(if (sourceBitmap != null) colors.primary.copy(alpha = 0.15f) else Color.Transparent)
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AddPhotoAlternate,
-                            contentDescription = "Attach",
-                            tint = if (sourceBitmap != null) colors.primary else colors.textSecondary,
-                            modifier = Modifier.size(19.dp)
-                        )
+                        Icon(imageVector = Icons.Rounded.AddPhotoAlternate, contentDescription = "Attach", tint = if (sourceBitmap != null) colors.primary else colors.textSecondary, modifier = Modifier.size(19.dp))
                     }
 
                     BasicTextField(
@@ -351,9 +356,9 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                         decorationBox = { innerTextField ->
                             if (promptText.isEmpty()) {
                                 Text(
-                                    text = if (sourceBitmap != null) "Describe edit (e.g. 'make it cyberpunk', 'upscale')..." else "Type image prompt...",
+                                    text = if (sourceBitmap != null) "Describe style (e.g. 'cyberpunk', 'anime', 'oil painting')..." else "Type prompt (e.g. 'cozy futuristic city, 8k')...",
                                     color = colors.textSecondary,
-                                    fontSize = 13.5.sp
+                                    fontSize = 13.sp
                                 )
                             }
                             innerTextField()
@@ -393,34 +398,5 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
         }
-    }
-}
-
-@Composable
-fun ToolTrayPill(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val colors = LocalKallistoColors.current
-    val bg = if (isSelected) colors.primary else colors.surface
-    val textCol = if (isSelected) colors.onPrimary else colors.textSecondary
-    val borderCol = if (isSelected) colors.primary else colors.border
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(bg)
-            .border(1.dp, borderCol, RoundedCornerShape(16.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            fontSize = 11.5.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = textCol
-        )
     }
 }

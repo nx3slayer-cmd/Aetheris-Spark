@@ -34,9 +34,9 @@ data class ModelDownloadProgress(
 
 class ModelManager(private val context: Context) {
 
-    // Background SupervisorScope that survives screen transitions
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val activeJobs = mutableMapOf<String, Job>()
+    private val prefs = context.getSharedPreferences("kallisto_model_prefs", Context.MODE_PRIVATE)
 
     private val okHttpClient = OkHttpClient.Builder()
         .followRedirects(true)
@@ -58,17 +58,22 @@ class ModelManager(private val context: Context) {
         }
     }
 
-    private val prefs = context.getSharedPreferences("kallisto_hf_prefs", Context.MODE_PRIVATE)
-
     var hfToken: String
         get() = prefs.getString("hf_token", "") ?: ""
         set(value) = prefs.edit().putString("hf_token", value.trim()).apply()
 
+    // Persistent Active Model IDs
+    private val _activeLlmId = MutableStateFlow(prefs.getString("active_llm_id", "llama-3.2-3b-q4"))
+    val activeLlmId: StateFlow<String?> = _activeLlmId.asStateFlow()
+
+    private val _activeImageModelId = MutableStateFlow(prefs.getString("active_img_id", "z-image-turbo-q2k"))
+    val activeImageModelId: StateFlow<String?> = _activeImageModelId.asStateFlow()
+
+    private val _activeTtsId = MutableStateFlow(prefs.getString("active_tts_id", "kokoro-82m-onnx"))
+    val activeTtsId: StateFlow<String?> = _activeTtsId.asStateFlow()
+
     private val _downloadStates = MutableStateFlow<Map<String, ModelDownloadProgress>>(emptyMap())
     val downloadStates: StateFlow<Map<String, ModelDownloadProgress>> = _downloadStates.asStateFlow()
-
-    private val _activeLlmPath = MutableStateFlow<String?>(null)
-    val activeLlmPath: StateFlow<String?> = _activeLlmPath.asStateFlow()
 
     fun getCategoryDir(category: ModelCategory): File {
         val subDir = when (category) {
@@ -94,6 +99,31 @@ class ModelManager(private val context: Context) {
         return file.exists() && file.length() > 0
     }
 
+    fun isModelActive(model: AIModelInfo): Boolean {
+        return when (model.category) {
+            ModelCategory.CHAT_LLM -> _activeLlmId.value == model.id
+            ModelCategory.IMAGE_GEN_AND_EDIT -> _activeImageModelId.value == model.id
+            ModelCategory.VOICE_TTS -> _activeTtsId.value == model.id
+        }
+    }
+
+    fun selectActiveModel(model: AIModelInfo) {
+        when (model.category) {
+            ModelCategory.CHAT_LLM -> {
+                _activeLlmId.value = model.id
+                prefs.edit().putString("active_llm_id", model.id).apply()
+            }
+            ModelCategory.IMAGE_GEN_AND_EDIT -> {
+                _activeImageModelId.value = model.id
+                prefs.edit().putString("active_img_id", model.id).apply()
+            }
+            ModelCategory.VOICE_TTS -> {
+                _activeTtsId.value = model.id
+                prefs.edit().putString("active_tts_id", model.id).apply()
+            }
+        }
+    }
+
     fun getAvailableStorageBytes(): Long {
         return try {
             val stat = StatFs(context.filesDir.path)
@@ -114,16 +144,12 @@ class ModelManager(private val context: Context) {
         }
     }
 
-    /**
-     * Resumable Download Engine with HTTP Range headers and Background Execution.
-     */
     fun downloadModel(model: AIModelInfo) {
         if (activeJobs[model.id]?.isActive == true) return
 
         val job = managerScope.launch {
             val destinationFile = getModelFile(model)
             val tempFile = getTempFile(model)
-
             val existingBytes = if (tempFile.exists()) tempFile.length() else 0L
 
             if (getAvailableStorageBytes() < (model.sizeBytes - existingBytes)) {
@@ -149,11 +175,9 @@ class ModelManager(private val context: Context) {
                 }
 
                 httpClient.prepareGet(model.downloadUrl) {
-                    // 1. Send Resume Range Header if partial file exists
                     if (existingBytes > 0) {
                         header(HttpHeaders.Range, "bytes=$existingBytes-")
                     }
-                    // 2. Inject Hugging Face Auth Token if user entered one
                     if (hfToken.isNotBlank()) {
                         header(HttpHeaders.Authorization, "Bearer $hfToken")
                     }
@@ -179,7 +203,7 @@ class ModelManager(private val context: Context) {
                     val totalLength = if (isPartial) (existingBytes + responseContentLength) else if (responseContentLength > 0) responseContentLength else model.sizeBytes
 
                     val channel: ByteReadChannel = httpResponse.bodyAsChannel()
-                    val buffer = ByteArray(64 * 1024) // 64 KB chunks
+                    val buffer = ByteArray(64 * 1024)
 
                     FileOutputStream(tempFile, appendMode).use { outputStream ->
                         while (!channel.isClosedForRead && isActive) {
@@ -213,7 +237,7 @@ class ModelManager(private val context: Context) {
                                     totalBytes = destinationFile.length()
                                 ))
                             }
-                            autoSelectActiveModel(model)
+                            selectActiveModel(model)
                         } else {
                             throw IllegalStateException("Failed to finalize downloaded file on device")
                         }
@@ -270,13 +294,5 @@ class ModelManager(private val context: Context) {
             }
         }
         return deleted
-    }
-
-    fun autoSelectActiveModel(model: AIModelInfo) {
-        val path = getModelFile(model).absolutePath
-        when (model.category) {
-            ModelCategory.CHAT_LLM -> _activeLlmPath.value = path
-            else -> {}
-        }
     }
 }
