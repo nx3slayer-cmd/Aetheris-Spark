@@ -2,20 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Network permissions for Model Downloader and Web Search execution -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Audio & Microphone permissions for Voice chat and Kokoro TTS playback -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- System Overlay permission for floating resizable companion window -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- Image access for Img2Img editing & saving generated artwork -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -28,28 +21,97 @@
     <application
         android:name=".KallistoApplication"
         android:allowBackup="false"
-        android:icon="@android:drawable/ic_dialog_info"
-        android:label="Kallisto Core"
-        android:roundIcon="@android:drawable/ic_dialog_info"
+        android:icon="@mipmap/ic_launcher_free"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_free"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false"
         tools:targetApi="35">
 
-        <!-- Main Fullscreen & Picture-in-Picture Activity -->
+        <!-- Root Activity (Entry point without direct launcher filter) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:supportsPictureInPicture="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- 1. FREE TIER ICON ALIAS (Default Enabled) -->
+        <activity-alias
+            android:name=".MainActivityAliasFree"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_free"
+            android:roundIcon="@mipmap/ic_launcher_free"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
-        <!-- Background Service for Floating Overlay Companion -->
+        <!-- 2. PRO PLATINUM ICON ALIAS (Default Pro) -->
+        <activity-alias
+            android:name=".MainActivityAliasProPlatinum"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_pro_platinum"
+            android:roundIcon="@mipmap/ic_launcher_pro_platinum"
+            android:label="Kallisto Pro"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 3. PRO GOLD ICON ALIAS -->
+        <activity-alias
+            android:name=".MainActivityAliasProGold"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_pro_gold"
+            android:roundIcon="@mipmap/ic_launcher_pro_gold"
+            android:label="Kallisto Pro"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 4. PRO AMETHYST ICON ALIAS -->
+        <activity-alias
+            android:name=".MainActivityAliasProAmethyst"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_pro_amethyst"
+            android:roundIcon="@mipmap/ic_launcher_pro_amethyst"
+            android:label="Kallisto Pro"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 5. PRO EMERALD ICON ALIAS -->
+        <activity-alias
+            android:name=".MainActivityAliasProEmerald"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_pro_emerald"
+            android:roundIcon="@mipmap/ic_launcher_pro_emerald"
+            android:label="Kallisto Pro"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <service
             android:name=".service.FloatingOverlayService"
             android:enabled="true"
