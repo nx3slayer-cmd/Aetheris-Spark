@@ -57,7 +57,7 @@ object ModelCatalog {
 
     val curatedModels: List<AIModelInfo> = listOf(
         // ==========================================
-        // 1. Z-Image Turbo 8-Step Models (Verified Direct GGUF Endpoints)
+        // 1. Z-Image Turbo 8-Step Models (Verified Direct GGUFs)
         // ==========================================
         AIModelInfo(
             id = "z-image-turbo-q2k",
@@ -85,20 +85,6 @@ object ModelCatalog {
             hfRepoUrl = "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
             quantization = "Q3_K GGUF",
             ramRequirementMB = 4200,
-            supportsImg2Img = true
-        ),
-        AIModelInfo(
-            id = "instruct-pix2pix-mobile",
-            name = "InstructPix2Pix Mobile",
-            description = "Natural language prompt-based photo editing (e.g. 'make it snowy').",
-            category = ModelCategory.IMAGE_GEN_AND_EDIT,
-            format = ModelFormat.ONNX,
-            fileName = "instruct_pix2pix_quant_int8.onnx",
-            sizeBytes = 890_000_000L, // ~848 MB
-            downloadUrl = "https://huggingface.co/kallistocore/instruct-pix2pix-mobile/resolve/main/instruct_pix2pix_quant_int8.onnx",
-            hfRepoUrl = "https://huggingface.co/timbrooks/instruct-pix2pix",
-            quantization = "INT8 ONNX",
-            ramRequirementMB = 1400,
             supportsImg2Img = true
         ),
 
@@ -135,19 +121,19 @@ object ModelCatalog {
         ),
 
         // ==========================================
-        // 3. Kokoro-82M Voice Engine
+        // 3. Kokoro-82M Voice Engine (Direct ONNX Model Path)
         // ==========================================
         AIModelInfo(
             id = "kokoro-82m-onnx",
-            name = "Kokoro-82M TTS Engine",
+            name = "Kokoro-82M TTS Engine (Direct ONNX)",
             description = "82M parameter neural speech model delivering human-like voice synthesis locally.",
             category = ModelCategory.VOICE_TTS,
             format = ModelFormat.ONNX,
-            fileName = "kokoro-v0_19.onnx",
-            sizeBytes = 88_000_000L, // ~84 MB
-            downloadUrl = "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx",
-            hfRepoUrl = "https://huggingface.co/hexgrad/Kokoro-82M",
-            quantization = "FP16 / INT8",
+            fileName = "kokoro_model.onnx",
+            sizeBytes = 86_500_000L, // ~82.5 MB
+            downloadUrl = "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model.onnx",
+            hfRepoUrl = "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX",
+            quantization = "ONNX FP32/FP16",
             ramRequirementMB = 220,
             supportsVoiceSynthesis = true
         )

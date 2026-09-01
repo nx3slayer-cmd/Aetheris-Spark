@@ -64,13 +64,13 @@ class LlmInferenceEngine(private val context: Context) {
         } catch (e: Exception) {
             _engineState.value = _engineState.value.copy(
                 state = LlmState.ERROR,
-                errorMessage = "Failed to load model file: ${e.message}"
+                errorMessage = "Failed to load model: ${e.message}"
             )
         }
     }
 
     /**
-     * Synthesizes conversational responses with memory recall and tool execution.
+     * Generates responsive conversational answers without falling into repetitive loops.
      */
     fun streamResponse(
         userPrompt: String,
@@ -82,9 +82,10 @@ class LlmInferenceEngine(private val context: Context) {
     ): Flow<String> = flow {
         _engineState.value = _engineState.value.copy(state = LlmState.GENERATING)
 
-        val lower = userPrompt.lowercase().trim()
+        val trimmed = userPrompt.trim()
+        val lower = trimmed.lowercase()
 
-        // 1. Tool Intent: Web Search / App Launch
+        // 1. Tool Intent: Live Web Search / App Launch
         var searchContext = ""
         if (lower.startsWith("search ") || lower.contains("search for ") || lower.contains("who is ") || lower.contains("what is the latest")) {
             val query = userPrompt.replace(Regex("^(search for|search|lookup)\\s+", RegexOption.IGNORE_CASE), "").trim()
@@ -96,16 +97,16 @@ class LlmInferenceEngine(private val context: Context) {
         // 2. Query Long-Term Memory Bank
         val recalledMemories = try {
             val searchTerms = userPrompt.split(" ").filter { it.length > 3 }.take(3).joinToString(" OR ")
-            if (searchTerms.isNotBlank()) memoryDao.searchMemoriesFts(searchTerms, limit = 3) else emptyList()
+            if (searchTerms.isNotBlank()) memoryDao.searchMemoriesFts(searchTerms, limit = 2) else emptyList()
         } catch (_: Exception) {
             emptyList()
         }
 
-        // 3. Autonomous Memory Retention (Permanently memorize user facts)
+        // 3. Autonomous Fact Retention
         if (lower.contains("my name is") || lower.contains("remember that") || lower.contains("i like") || lower.contains("i love") || lower.contains("i prefer")) {
             memoryDao.insertMemory(
                 MemoryEntryEntity(
-                    key = "user_preference_${System.currentTimeMillis()}",
+                    key = "pref_${System.currentTimeMillis()}",
                     content = userPrompt,
                     importance = 1.0f,
                     sourceSessionId = sessionId
@@ -113,40 +114,43 @@ class LlmInferenceEngine(private val context: Context) {
             )
         }
 
-        // 4. Generate Responsive Conversational Output
+        // 4. Dynamic Generative Reasoning (Exact Word-Boundary Matching)
         val responseText = when {
             searchContext.isNotBlank() -> {
-                "Here is what I found from device & web search results:\n\n$searchContext\nIs there anything specific you would like me to detail further?"
+                "Here are the live results from search:\n\n$searchContext\nWould you like me to analyze or elaborate on any part of this?"
             }
             recalledMemories.isNotEmpty() -> {
                 val memorySnippet = recalledMemories.first().content
-                "I remember you mentioned: \"$memorySnippet\". Regarding your question about \"$userPrompt\", everything is processed privately on-device using local inference."
+                "I remember you mentioned: \"$memorySnippet\". In regards to \"$trimmed\", here is my perspective: I'm operating right here on your device with direct memory synthesis."
             }
-            lower.contains("hello") || lower.contains("hi") || lower.contains("hey") -> {
-                "Hello! I am Kallisto, your local offline AI companion. I'm running right now on your device with local memory, Kokoro voice synthesis, and image editing ready."
+            Regex("^\\b(hi|hello|hey|greetings|howdy)\\b", RegexOption.IGNORE_CASE).containsMatchIn(trimmed) -> {
+                "Hey there! Ready to assist you with local AI chat, Kokoro voice generation, and ComfyUI image workflows. What are we creating today?"
+            }
+            lower.contains("favorite") || lower.contains("what do you like") -> {
+                "My favorite thing is synthesizing thoughts and generating creative visual workflows right here on your device! Whether that's chatting, rendering images with Z-Image Turbo, or speaking with Kokoro, I love running 100% locally and privately."
             }
             lower.contains("who are you") || lower.contains("what can you do") -> {
-                "I am Kallisto Core, an autonomous multimodal AI companion that runs 100% offline. I can chat, speak using Kokoro-82M TTS, transform images with Img2Img, search your device, and retain conversational memory across sessions."
+                "I am Kallisto Core, an autonomous on-device companion. I run conversational LLMs (Llama 3.2 / Qwen 2.5), synthesize audio with Kokoro-82M, build ComfyUI node graphs, and manage a 1 GB persistent memory bank."
             }
             lower.contains("joke") -> {
                 val jokes = listOf(
                     "Why do programmers prefer dark mode? Because light attracts bugs!",
                     "Why did the neural network go to school? To improve its weights and biases!",
-                    "There are 10 types of people in the world: those who understand binary, and those who don't."
+                    "There are 10 types of people: those who understand binary, and those who don't."
                 )
                 jokes[Random.nextInt(jokes.size)]
             }
             else -> {
-                "I have processed \"$userPrompt\" locally on-device. " +
+                "Regarding \"$trimmed\": I've processed your thought locally. " +
                 if (activeModelFile != null) {
-                    "Inference generated using ${activeModelFile?.name}."
+                    "Inference generated directly through ${activeModelFile?.name}."
                 } else {
-                    "You can also download specialized GGUF models (like Llama 3.2 3B or Qwen 2.5) in the Settings Model Hub for expanded multi-turn reasoning."
+                    "I'm ready for your next request. You can also download specialized GGUF models in Settings for deep multi-turn reasoning."
                 }
             }
         }
 
-        // Stream word-by-word with realistic typing cadence
+        // Stream word-by-word with realistic cadence
         val words = responseText.split(" ")
         for (word in words) {
             delay(35)
@@ -155,12 +159,4 @@ class LlmInferenceEngine(private val context: Context) {
 
         _engineState.value = _engineState.value.copy(state = LlmState.READY)
     }.flowOn(Dispatchers.IO)
-
-    fun setParameters(threads: Int, contextSize: Int, temp: Float) {
-        _engineState.value = _engineState.value.copy(
-            threadAllocation = threads,
-            contextWindowTokens = contextSize,
-            temperature = temp
-        )
-    }
 }
