@@ -7,16 +7,23 @@ import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import com.kallistocore.ai.data.network.ComfyUiClient
+import io.ktor.client.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.*
-import kotlin.random.Random
+import kotlin.math.roundToInt
 
 enum class ImageGenState {
     IDLE,
@@ -50,6 +57,9 @@ data class ImageGenProgress(
 
 class ImageStudioEngine(private val context: Context) {
 
+    val comfyClient = ComfyUiClient(context)
+    private val httpClient = HttpClient(OkHttp)
+
     private val _progressState = MutableStateFlow(ImageGenProgress())
     val progressState: StateFlow<ImageGenProgress> = _progressState.asStateFlow()
 
@@ -61,8 +71,8 @@ class ImageStudioEngine(private val context: Context) {
         upscaleMultiplier: Float = 1.0f,
         forceSquareCrop: Boolean = false,
         strength: Float = 0.75f,
-        steps: Int = 4
-    ): File? = withContext(Dispatchers.Default) {
+        steps: Int = 8
+    ): File? = withContext(Dispatchers.IO) {
         if (prompt.isBlank() && inputImage == null) return@withContext null
 
         try {
@@ -74,52 +84,64 @@ class ImageStudioEngine(private val context: Context) {
                 forceSquareCrop = forceSquareCrop
             )
 
-            // Step 1: Color Decomposition
             _progressState.value = ImageGenProgress(
                 state = ImageGenState.PREPROCESSING,
                 currentStep = 1,
                 totalSteps = steps,
                 progressFraction = 0.15f,
-                stepDescription = "Pass 1/4: Analyzing color channels & latent space...",
+                stepDescription = "Initializing diffusion pipeline (${targetW}x${targetH})...",
                 outputDimensions = "${targetW}x${targetH}"
             )
-            delay(400)
 
-            // Step 2: Stylistic Matrix Transformation
-            _progressState.value = ImageGenProgress(
-                state = ImageGenState.DENOISING_STEPS,
-                currentStep = 2,
-                totalSteps = steps,
-                progressFraction = 0.45f,
-                stepDescription = "Pass 2/4: Applying prompt-guided neural stylization...",
-                outputDimensions = "${targetW}x${targetH}"
-            )
-            delay(500)
+            var outputBitmap: Bitmap? = null
 
-            // Step 3: Neural Edge & High-Frequency Texture Synthesis
-            val outputBitmap = if (inputImage != null) {
-                executeActualImg2ImgTransformation(inputImage, prompt, strength, targetW, targetH, forceSquareCrop)
-            } else {
-                generateProceduralFractalArt(prompt, targetW, targetH)
+            // 1. Try ComfyUI Server on Local Network (DGX Spark / PC)
+            val isComfyConnected = comfyClient.checkServerConnection()
+            if (isComfyConnected) {
+                _progressState.value = ImageGenProgress(
+                    state = ImageGenState.DENOISING_STEPS,
+                    currentStep = 2,
+                    totalSteps = steps,
+                    progressFraction = 0.45f,
+                    stepDescription = "Queuing on DGX ComfyUI Server...",
+                    outputDimensions = "${targetW}x${targetH}"
+                )
+
+                val uploadedName = if (inputImage != null) comfyClient.uploadImage(inputImage) else null
+                outputBitmap = comfyClient.queuePromptAndFetchImage(
+                    promptText = prompt,
+                    inputImageName = uploadedName,
+                    steps = steps,
+                    cfg = 1.5f,
+                    width = targetW,
+                    height = targetH
+                )
+            }
+
+            // 2. Direct Diffusion Engine (Real Open-Source AI Generation)
+            if (outputBitmap == null) {
+                _progressState.value = ImageGenProgress(
+                    state = ImageGenState.DENOISING_STEPS,
+                    currentStep = 3,
+                    totalSteps = steps,
+                    progressFraction = 0.65f,
+                    stepDescription = "Synthesizing diffusion latents for: '$prompt'...",
+                    outputDimensions = "${targetW}x${targetH}"
+                )
+
+                outputBitmap = fetchDirectDiffusionImage(prompt, targetW, targetH, inputImage, strength)
+            }
+
+            if (outputBitmap == null) {
+                throw IllegalStateException("Diffusion synthesis failed. Check network or ComfyUI server.")
             }
 
             _progressState.value = ImageGenProgress(
-                state = ImageGenState.DENOISING_STEPS,
-                currentStep = 3,
-                totalSteps = steps,
-                progressFraction = 0.75f,
-                stepDescription = "Pass 3/4: Refining sharpness & super-resolution...",
-                outputDimensions = "${targetW}x${targetH}"
-            )
-            delay(400)
-
-            // Step 4: Save to DCIM/KallistoAI & Gallery
-            _progressState.value = ImageGenProgress(
                 state = ImageGenState.POSTPROCESSING,
-                currentStep = 4,
+                currentStep = steps,
                 totalSteps = steps,
-                progressFraction = 0.92f,
-                stepDescription = "Pass 4/4: Exporting to DCIM/KallistoAI gallery...",
+                progressFraction = 0.95f,
+                stepDescription = "Saving to DCIM/KallistoAI album...",
                 outputDimensions = "${targetW}x${targetH}"
             )
 
@@ -141,9 +163,47 @@ class ImageStudioEngine(private val context: Context) {
         } catch (e: Exception) {
             _progressState.value = ImageGenProgress(
                 state = ImageGenState.ERROR,
-                errorMessage = e.localizedMessage ?: "Image processing failed"
+                errorMessage = e.localizedMessage ?: "Generation failed"
             )
             return@withContext null
+        }
+    }
+
+    private suspend fun fetchDirectDiffusionImage(
+        prompt: String,
+        width: Int,
+        height: Int,
+        inputImage: Bitmap?,
+        strength: Float
+    ): Bitmap? = withContext(Dispatchers.IO) {
+        try {
+            val encodedPrompt = prompt.encodeURLParameter()
+            val seed = (System.currentTimeMillis() % 1000000).toInt()
+            val url = "https://image.pollinations.ai/prompt/$encodedPrompt?width=$width&height=$height&seed=$seed&model=flux&nologo=true"
+
+            val response = httpClient.get(url)
+            if (response.status.isSuccess()) {
+                val bytes = response.bodyAsChannel().toByteArray()
+                val downloadedBmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+
+                if (inputImage != null && downloadedBmp != null) {
+                    // Blend with input image for Img2Img style consistency
+                    val blended = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(blended)
+                    val scaledInput = Bitmap.createScaledBitmap(inputImage, width, height, true)
+                    canvas.drawBitmap(scaledInput, 0f, 0f, null)
+
+                    val paint = Paint().apply {
+                        alpha = (strength * 230).toInt().coerceIn(60, 255)
+                    }
+                    canvas.drawBitmap(downloadedBmp, 0f, 0f, paint)
+                    return@withContext blended
+                }
+                return@withContext downloadedBmp
+            }
+            null
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -157,11 +217,11 @@ class ImageStudioEngine(private val context: Context) {
         if (inputImage != null) {
             return if (forceSquareCrop) {
                 val size = ((minOf(inputImage.width, inputImage.height) * upscaleMultiplier).roundToInt() / 16) * 16
-                Pair(size.coerceIn(384, 1536), size.coerceIn(384, 1536))
+                Pair(size.coerceIn(384, 1024), size.coerceIn(384, 1024))
             } else {
                 val w = ((inputImage.width * upscaleMultiplier).roundToInt() / 16) * 16
                 val h = ((inputImage.height * upscaleMultiplier).roundToInt() / 16) * 16
-                Pair(w.coerceIn(384, 1536), h.coerceIn(384, 1536))
+                Pair(w.coerceIn(384, 1024), h.coerceIn(384, 1024))
             }
         }
 
@@ -175,214 +235,6 @@ class ImageStudioEngine(private val context: Context) {
             AspectRatioOption.VERTICAL_3_4 -> { w = (baseResolution * 0.86f).toInt() / 16 * 16; h = (baseResolution * 1.15f).toInt() / 16 * 16 }
         }
         return Pair(w, h)
-    }
-
-    private fun executeActualImg2ImgTransformation(
-        source: Bitmap,
-        prompt: String,
-        strength: Float,
-        targetW: Int,
-        targetH: Int,
-        forceSquareCrop: Boolean
-    ): Bitmap {
-        val croppedSource = if (forceSquareCrop) {
-            val minDim = minOf(source.width, source.height)
-            val xOffset = (source.width - minDim) / 2
-            val yOffset = (source.height - minDim) / 2
-            Bitmap.createBitmap(source, xOffset, yOffset, minDim, minDim)
-        } else {
-            source
-        }
-
-        val scaled = Bitmap.createScaledBitmap(croppedSource, targetW, targetH, true)
-        val result = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(result)
-
-        val lower = prompt.lowercase()
-
-        when {
-            lower.contains("sketch") || lower.contains("pencil") || lower.contains("drawing") || lower.contains("charcoal") -> {
-                val sketchBmp = applyPencilSketchFilter(scaled)
-                canvas.drawBitmap(sketchBmp, 0f, 0f, null)
-            }
-            lower.contains("cyberpunk") || lower.contains("neon") || lower.contains("synthwave") || lower.contains("futuristic") -> {
-                val cyberBmp = applyCyberpunkFilter(scaled, strength)
-                canvas.drawBitmap(cyberBmp, 0f, 0f, null)
-            }
-            lower.contains("anime") || lower.contains("manga") || lower.contains("comic") || lower.contains("cartoon") -> {
-                val animeBmp = applyAnimeCelShadingFilter(scaled, strength)
-                canvas.drawBitmap(animeBmp, 0f, 0f, null)
-            }
-            lower.contains("oil painting") || lower.contains("watercolor") || lower.contains("painted") -> {
-                val oilBmp = applyOilPaintingFilter(scaled, strength)
-                canvas.drawBitmap(oilBmp, 0f, 0f, null)
-            }
-            else -> {
-                val enhancedBmp = applyGeneralStyleTransfer(scaled, prompt, strength, targetW, targetH)
-                canvas.drawBitmap(enhancedBmp, 0f, 0f, null)
-            }
-        }
-
-        return result
-    }
-
-    private fun applyPencilSketchFilter(src: Bitmap): Bitmap {
-        val width = src.width
-        val height = src.height
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val pixels = IntArray(width * height)
-        src.getPixels(pixels, 0, width, 0, 0, width, height)
-
-        val gray = IntArray(width * height)
-        for (i in pixels.indices) {
-            val p = pixels[i]
-            val r = (p shr 16) and 0xFF
-            val g = (p shr 8) and 0xFF
-            val b = p and 0xFF
-            gray[i] = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-        }
-
-        for (y in 1 until height - 1) {
-            for (x in 1 until width - 1) {
-                val idx = y * width + x
-                val diffX = abs(gray[idx + 1] - gray[idx - 1])
-                val diffY = abs(gray[idx + width] - gray[idx - width])
-                val edge = (diffX + diffY).coerceIn(0, 255)
-                val inverted = (255 - (edge * 2)).coerceIn(0, 255)
-                pixels[idx] = Color.rgb(inverted, inverted, inverted)
-            }
-        }
-
-        output.setPixels(pixels, 0, width, 0, 0, width, height)
-        return output
-    }
-
-    private fun applyCyberpunkFilter(src: Bitmap, strength: Float): Bitmap {
-        val output = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-
-        val cm = ColorMatrix(floatArrayOf(
-            1.6f, 0f, 0.2f, 0f, 40f,
-            0f, 1.1f, 0f, 0f, -10f,
-            0.3f, 0f, 2.0f, 0f, 70f,
-            0f, 0f, 0f, 1f, 0f
-        ))
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { colorFilter = ColorMatrixColorFilter(cm) }
-        canvas.drawBitmap(src, 0f, 0f, paint)
-
-        val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(0f, 0f, src.width.toFloat(), src.height.toFloat(), Color.rgb(99, 102, 241), Color.rgb(236, 72, 153), Shader.TileMode.CLAMP)
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-            alpha = (strength * 180).toInt().coerceIn(40, 230)
-        }
-        canvas.drawRect(0f, 0f, src.width.toFloat(), src.height.toFloat(), overlayPaint)
-        return output
-    }
-
-    private fun applyAnimeCelShadingFilter(src: Bitmap, strength: Float): Bitmap {
-        val width = src.width
-        val height = src.height
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val pixels = IntArray(width * height)
-        src.getPixels(pixels, 0, width, 0, 0, width, height)
-
-        for (i in pixels.indices) {
-            val p = pixels[i]
-            var r = (p shr 16) and 0xFF
-            var g = (p shr 8) and 0xFF
-            var b = p and 0xFF
-
-            r = (r / 64) * 64 + 32
-            g = (g / 64) * 64 + 32
-            b = (b / 64) * 64 + 32
-
-            pixels[i] = Color.rgb(r.coerceIn(0, 255), g.coerceIn(0, 255), b.coerceIn(0, 255))
-        }
-
-        output.setPixels(pixels, 0, width, 0, 0, width, height)
-        return output
-    }
-
-    private fun applyOilPaintingFilter(src: Bitmap, strength: Float): Bitmap {
-        val output = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-        val cm = ColorMatrix().apply {
-            setSaturation(1.4f)
-        }
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-            colorFilter = ColorMatrixColorFilter(cm)
-        }
-        canvas.drawBitmap(src, 0f, 0f, paint)
-
-        val brushPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(0f, 0f, src.width.toFloat(), src.height.toFloat(), Color.rgb(245, 158, 11), Color.rgb(139, 92, 246), Shader.TileMode.CLAMP)
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-            alpha = (strength * 160).toInt().coerceIn(30, 210)
-        }
-        canvas.drawRect(0f, 0f, src.width.toFloat(), src.height.toFloat(), brushPaint)
-        return output
-    }
-
-    private fun applyGeneralStyleTransfer(src: Bitmap, prompt: String, strength: Float, w: Int, h: Int): Bitmap {
-        val output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-
-        val hash = prompt.hashCode()
-        val r = (hash and 0xFF).coerceIn(40, 220)
-        val g = ((hash shr 8) and 0xFF).coerceIn(40, 220)
-        val b = ((hash shr 16) and 0xFF).coerceIn(40, 220)
-
-        val cm = ColorMatrix().apply { setSaturation(1.3f) }
-        paint.colorFilter = ColorMatrixColorFilter(cm)
-        canvas.drawBitmap(src, 0f, 0f, paint)
-
-        val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(0f, 0f, w.toFloat(), h.toFloat(), Color.rgb(r, g, b), Color.rgb(b, r, g), Shader.TileMode.CLAMP)
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-            alpha = (strength * 170).toInt().coerceIn(30, 220)
-        }
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), overlayPaint)
-        return output
-    }
-
-    private fun generateProceduralFractalArt(prompt: String, width: Int, height: Int): Bitmap {
-        val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(result)
-        val random = Random(prompt.hashCode())
-
-        val col1 = Color.rgb(random.nextInt(15, 60), random.nextInt(20, 70), random.nextInt(40, 110))
-        val col2 = Color.rgb(random.nextInt(5, 25), random.nextInt(10, 30), random.nextInt(15, 40))
-        val bgPaint = Paint().apply {
-            shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), col1, col2, Shader.TileMode.CLAMP)
-        }
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
-
-        val cx = width / 2f
-        val cy = height / 2f
-        val numRings = 7
-
-        for (i in 1..numRings) {
-            val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = (i * 3).toFloat()
-                color = Color.rgb(
-                    random.nextInt(80, 255),
-                    random.nextInt(80, 255),
-                    random.nextInt(160, 255)
-                )
-                alpha = (220 - (i * 25)).coerceIn(30, 255)
-            }
-            canvas.drawCircle(cx, cy, (i * (min(width, height) / 16f)), ringPaint)
-        }
-
-        val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            alpha = 230
-        }
-        canvas.drawCircle(cx, cy, (min(width, height) / 24f), corePaint)
-
-        return result
     }
 
     fun saveBitmapToStorage(bitmap: Bitmap, prefix: String = "kallisto"): File? {
@@ -429,8 +281,19 @@ class ImageStudioEngine(private val context: Context) {
                 out.flush()
             }
             return internalFile
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return null
         }
+    }
+
+    private suspend fun io.ktor.utils.io.ByteReadChannel.toByteArray(): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(4096)
+        while (!isClosedForRead) {
+            val read = readAvailable(buffer, 0, buffer.size)
+            if (read <= 0) break
+            out.write(buffer, 0, read)
+        }
+        return out.toByteArray()
     }
 }

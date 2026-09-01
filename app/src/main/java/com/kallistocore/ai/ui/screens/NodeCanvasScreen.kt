@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -23,10 +24,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,16 +44,23 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val workflowEngine = remember { ComfyUiWorkflowEngine(context) }
+    val comfyClient = viewModel.imageStudio.comfyClient
 
     var workflowGraph by remember { mutableStateOf(workflowEngine.createDefaultWorkflow()) }
     var activeExecutingNodeId by remember { mutableStateOf<String?>(null) }
     var isRunning by remember { mutableStateOf(false) }
 
-    // Canvas Pan & Zoom State
+    var serverUrlText by remember { mutableStateOf(comfyClient.serverUrl) }
+    var isServerConnected by remember { mutableStateOf(false) }
+
+    // Check server status
+    LaunchedEffect(serverUrlText) {
+        isServerConnected = comfyClient.checkServerConnection()
+    }
+
     var canvasOffset by remember { mutableStateOf(Offset(0f, 0f)) }
     var canvasScale by remember { mutableFloatStateOf(1.0f) }
 
-    // ComfyUI JSON File Importer
     val jsonPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -68,7 +78,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // 1. Infinite Visual Grid & Bezier Wires Canvas
+        // Infinite Grid & Wires
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -79,28 +89,21 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     }
                 }
         ) {
-            // Draw Dynamic Background Grid and Connection Wires
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val gridSpacing = 40f * canvasScale
                 val startX = canvasOffset.x % gridSpacing
                 val startY = canvasOffset.y % gridSpacing
 
-                // Grid dots
                 var x = startX
                 while (x < size.width) {
                     var y = startY
                     while (y < size.height) {
-                        drawCircle(
-                            color = Color(0xFF334155).copy(alpha = 0.35f),
-                            radius = 2f * canvasScale,
-                            center = Offset(x, y)
-                        )
+                        drawCircle(color = Color(0xFF334155).copy(alpha = 0.35f), radius = 2f * canvasScale, center = Offset(x, y))
                         y += gridSpacing
                     }
                     x += gridSpacing
                 }
 
-                // Draw Cubic Bezier Wire Cables between connected nodes
                 for (connection in workflowGraph.connections) {
                     val fromNode = workflowGraph.nodes.find { it.id == connection.fromNodeId }
                     val toNode = workflowGraph.nodes.find { it.id == connection.toNodeId }
@@ -116,16 +119,11 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                             cubicTo(p1.x + dx, p1.y, p2.x - dx, p2.y, p2.x, p2.y)
                         }
 
-                        drawPath(
-                            path = path,
-                            color = connection.portType.color.copy(alpha = 0.85f),
-                            style = Stroke(width = 3.5f * canvasScale, cap = StrokeCap.Round)
-                        )
+                        drawPath(path = path, color = connection.portType.color.copy(alpha = 0.85f), style = Stroke(width = 3.5f * canvasScale, cap = StrokeCap.Round))
                     }
                 }
             }
 
-            // Render Draggable Bento Nodes
             workflowGraph.nodes.forEach { node ->
                 val nodeOffset = node.position * canvasScale + canvasOffset
                 val isExecuting = activeExecutingNodeId == node.id
@@ -137,7 +135,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     isExecuting = isExecuting,
                     onMove = { delta ->
                         node.position += delta / canvasScale
-                        workflowGraph = workflowGraph.copy() // Trigger state recompose
+                        workflowGraph = workflowGraph.copy()
                     },
                     onToggleCollapse = {
                         node.isCollapsed = !node.isCollapsed
@@ -147,64 +145,66 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 2. Top Control HUD Bar (Import ComfyUI JSON, Reset, Zoom Indicator)
-        Row(
+        // Top HUD & ComfyUI Server IP Config
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // ComfyUI Server IP Bar
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
                     .background(colors.surface)
-                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+                    .border(1.dp, if (isServerConnected) colors.statusSuccess else colors.border, RoundedCornerShape(16.dp))
                     .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(imageVector = Icons.Rounded.AccountTree, contentDescription = "Nodes", tint = colors.accentWave, modifier = Modifier.size(18.dp))
-                Text(
-                    text = "${workflowGraph.nodes.size} Nodes • ${(canvasScale * 100).toInt()}%",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary
-                )
-            }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isServerConnected) colors.statusSuccess else colors.error)
+                    )
+                    Text(text = if (isServerConnected) "DGX Connected:" else "ComfyUI Server:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Import ComfyUI JSON Button
+                    BasicTextField(
+                        value = serverUrlText,
+                        onValueChange = {
+                            serverUrlText = it
+                            comfyClient.serverUrl = it
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(color = colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                        cursorBrush = SolidColor(colors.primary)
+                    )
+                }
+
                 Button(
                     onClick = { jsonPickerLauncher.launch("application/json") },
                     modifier = Modifier
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant)
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
                 ) {
-                    Icon(imageVector = Icons.Rounded.FileDownload, contentDescription = "Import", tint = colors.textPrimary, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Import ComfyUI JSON", fontSize = 11.5.sp, color = colors.textPrimary, fontWeight = FontWeight.SemiBold)
-                }
-
-                // Reset Canvas Pan/Zoom
-                IconButton(
-                    onClick = {
-                        canvasOffset = Offset(0f, 0f)
-                        canvasScale = 1.0f
-                    },
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.surfaceVariant)
-                ) {
-                    Icon(imageVector = Icons.Rounded.CenterFocusStrong, contentDescription = "Center", tint = colors.textPrimary, modifier = Modifier.size(18.dp))
+                    Icon(imageVector = Icons.Rounded.FileDownload, contentDescription = "Import", tint = colors.textPrimary, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Import JSON", fontSize = 11.sp, color = colors.textPrimary)
                 }
             }
         }
 
-        // 3. Floating Bottom Execution FAB
+        // Floating Bottom Execution Button
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -217,6 +217,15 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     if (!isRunning) {
                         isRunning = true
                         coroutineScope.launch {
+                            val promptNode = workflowGraph.nodes.find { it.type == NodeType.CLIP_TEXT_ENCODE }
+                            val promptText = promptNode?.params?.get("text") ?: "Cyberpunk city at neon midnight, 8k"
+
+                            viewModel.imageStudio.generateOrEditImage(
+                                prompt = promptText,
+                                inputImage = viewModel.selectedSourceImage.value,
+                                steps = 8
+                            )
+
                             workflowEngine.executeWorkflow(workflowGraph) { runningNodeId ->
                                 activeExecutingNodeId = runningNodeId
                             }
@@ -230,18 +239,9 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     .clip(RoundedCornerShape(16.dp)),
                 colors = ButtonDefaults.buttonColors(containerColor = if (isRunning) colors.accentWave else colors.primary)
             ) {
-                Icon(
-                    imageVector = if (isRunning) Icons.Rounded.HourglassTop else Icons.Rounded.PlayArrow,
-                    contentDescription = "Run",
-                    tint = colors.onPrimary
-                )
+                Icon(imageVector = if (isRunning) Icons.Rounded.HourglassTop else Icons.Rounded.PlayArrow, contentDescription = "Run", tint = colors.onPrimary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isRunning) "Executing ComfyUI Graph..." else "Queue Prompt Workflow",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.onPrimary
-                )
+                Text(text = if (isRunning) "Generating AI Image..." else "Queue Workflow Prompt", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.onPrimary)
             }
         }
     }
@@ -272,7 +272,6 @@ fun DraggableBentoNode(
             )
     ) {
         Column {
-            // Node Header (Draggable Handle)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -288,89 +287,37 @@ fun DraggableBentoNode(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size((8 * scale).dp)
-                            .clip(CircleShape)
-                            .background(if (isExecuting) colors.statusSuccess else colors.primary)
-                    )
-                    Text(
-                        text = node.title,
-                        fontSize = (12 * scale).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.textPrimary,
-                        maxLines = 1
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)) {
+                    Box(modifier = Modifier.size((8 * scale).dp).clip(CircleShape).background(if (isExecuting) colors.statusSuccess else colors.primary))
+                    Text(text = node.title, fontSize = (12 * scale).sp, fontWeight = FontWeight.Bold, color = colors.textPrimary, maxLines = 1)
                 }
 
-                IconButton(
-                    onClick = onToggleCollapse,
-                    modifier = Modifier.size((22 * scale).dp)
-                ) {
-                    Icon(
-                        imageVector = if (node.isCollapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess,
-                        contentDescription = "Collapse",
-                        tint = colors.textSecondary,
-                        modifier = Modifier.size((16 * scale).dp)
-                    )
+                IconButton(onClick = onToggleCollapse, modifier = Modifier.size((22 * scale).dp)) {
+                    Icon(imageVector = if (node.isCollapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, contentDescription = "Collapse", tint = colors.textSecondary, modifier = Modifier.size((16 * scale).dp))
                 }
             }
 
-            // Node Body (Inputs, Parameters & Outputs)
             if (!node.isCollapsed) {
-                Column(
-                    modifier = Modifier.padding((12 * scale).dp),
-                    verticalArrangement = Arrangement.spacedBy((8 * scale).dp)
-                ) {
-                    // Input Ports
+                Column(modifier = Modifier.padding((12 * scale).dp), verticalArrangement = Arrangement.spacedBy((8 * scale).dp)) {
                     node.inputs.forEach { port ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size((10 * scale).dp)
-                                    .clip(CircleShape)
-                                    .background(port.type.color)
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)) {
+                            Box(modifier = Modifier.size((10 * scale).dp).clip(CircleShape).background(port.type.color))
                             Text(text = port.name, fontSize = (10 * scale).sp, color = colors.textSecondary)
                         }
                     }
 
-                    // Node Parameters (Prompt text / Steps / Sampler)
                     node.params.forEach { (key, value) ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape((8 * scale).dp))
-                                .background(colors.surfaceVariant.copy(alpha = 0.5f))
-                                .padding((6 * scale).dp)
-                        ) {
+                        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((8 * scale).dp)).background(colors.surfaceVariant.copy(alpha = 0.5f)).padding((6 * scale).dp)) {
                             Text(text = key.uppercase(), fontSize = (9 * scale).sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
                             Text(text = value, fontSize = (11 * scale).sp, color = colors.textPrimary, maxLines = 2)
                         }
                     }
 
-                    // Output Ports
                     node.outputs.forEach { port ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                             Text(text = port.name, fontSize = (10 * scale).sp, color = colors.textSecondary)
                             Spacer(modifier = Modifier.width((6 * scale).dp))
-                            Box(
-                                modifier = Modifier
-                                    .size((10 * scale).dp)
-                                    .clip(CircleShape)
-                                    .background(port.type.color)
-                            )
+                            Box(modifier = Modifier.size((10 * scale).dp).clip(CircleShape).background(port.type.color))
                         }
                     }
                 }
