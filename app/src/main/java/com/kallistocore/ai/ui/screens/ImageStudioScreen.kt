@@ -1,6 +1,5 @@
 package com.kallistocore.ai.ui.screens
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
@@ -45,8 +44,89 @@ import com.kallistocore.ai.ui.theme.LocalKallistoColors
 import com.kallistocore.ai.ui.viewmodel.CompanionViewModel
 import kotlinx.coroutines.launch
 
+enum class StudioMode {
+    QUICK_STUDIO,
+    NODE_WORKFLOW_COMFYUI
+}
+
 @Composable
 fun ImageStudioScreen(viewModel: CompanionViewModel) {
+    val colors = LocalKallistoColors.current
+    var studioMode by remember { mutableStateOf(StudioMode.QUICK_STUDIO) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+    ) {
+        // Top Studio Mode Toggle (Quick Studio vs Node Canvas ComfyUI)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(colors.surface)
+                .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (studioMode == StudioMode.QUICK_STUDIO) colors.primary else Color.Transparent)
+                    .clickable { studioMode = StudioMode.QUICK_STUDIO }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Quick Studio",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (studioMode == StudioMode.QUICK_STUDIO) colors.onPrimary else colors.textSecondary
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (studioMode == StudioMode.NODE_WORKFLOW_COMFYUI) colors.primary else Color.Transparent)
+                    .clickable { studioMode = StudioMode.NODE_WORKFLOW_COMFYUI }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(imageVector = Icons.Rounded.AccountTree, contentDescription = "Nodes", tint = if (studioMode == StudioMode.NODE_WORKFLOW_COMFYUI) colors.onPrimary else colors.accentWave, modifier = Modifier.size(14.dp))
+                    Text(
+                        text = "ComfyUI Node Canvas",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (studioMode == StudioMode.NODE_WORKFLOW_COMFYUI) colors.onPrimary else colors.textSecondary
+                    )
+                }
+            }
+        }
+
+        // Render Active Studio Workspace
+        AnimatedContent(
+            targetState = studioMode,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "studio_mode_switch"
+        ) { mode ->
+            when (mode) {
+                StudioMode.QUICK_STUDIO -> QuickStudioView(viewModel = viewModel)
+                StudioMode.NODE_WORKFLOW_COMFYUI -> NodeCanvasScreen(viewModel = viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickStudioView(viewModel: CompanionViewModel) {
     val colors = LocalKallistoColors.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -67,7 +147,6 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
             progressState.state == ImageGenState.DENOISING_STEPS ||
             progressState.state == ImageGenState.POSTPROCESSING
 
-    // Auto-scroll when generation completes
     LaunchedEffect(progressState.generatedBitmap) {
         if (progressState.generatedBitmap != null) {
             listState.animateScrollToItem(index = 2)
@@ -89,11 +168,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.background)
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -101,9 +176,8 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(top = 10.dp, bottom = 14.dp)
+            contentPadding = PaddingValues(top = 4.dp, bottom = 14.dp)
         ) {
-            // Header Info Card
             item {
                 Column(
                     modifier = Modifier
@@ -150,7 +224,6 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
 
-            // Source Photo Attachment Card
             item {
                 Box(
                     modifier = Modifier
@@ -199,7 +272,6 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
 
-            // Live Progress & Prominent Rendered Result Display
             if (progressState.generatedBitmap != null || isGenerating) {
                 item {
                     Column(
@@ -238,7 +310,6 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                             )
                         }
 
-                        // Direct In-Memory Bitmap Render
                         if (progressState.generatedBitmap != null) {
                             Image(
                                 bitmap = progressState.generatedBitmap!!.asImageBitmap(),
@@ -251,7 +322,6 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                                 contentScale = ContentScale.Fit
                             )
 
-                            // DCIM Saved Confirmation Badge
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -288,7 +358,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                                         .clip(RoundedCornerShape(10.dp)),
                                     colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                                 ) {
-                                    Icon(imageVector = Icons.Rounded.Send, contentDescription = "Chat", tint = colors.onPrimary, modifier = Modifier.size(16.dp))
+                                    Icon(imageVector = Icons.AutoMirrored.Rounded.Send, contentDescription = "Chat", tint = colors.onPrimary, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Send to Chat", fontSize = 12.sp, color = colors.onPrimary)
                                 }
@@ -299,7 +369,6 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // Horizontal Sliding Tool Tray & Prompt Input Bar
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = colors.background
