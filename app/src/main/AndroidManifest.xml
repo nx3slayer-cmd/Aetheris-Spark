@@ -29,88 +29,52 @@
         android:usesCleartextTraffic="false"
         tools:targetApi="35">
 
-        <!-- Root Activity (Entry point without direct launcher filter) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:supportsPictureInPicture="true"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
-        <!-- 1. FREE TIER ICON ALIAS (Default Enabled) -->
         <activity-alias
             android:name=".MainActivityAliasFree"
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_free"
-            android:roundIcon="@mipmap/ic_launcher_free"
-            android:label="@string/app_name"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+            android:targetActivity=".MainActivity" />
 
-        <!-- 2. PRO PLATINUM ICON ALIAS (Default Pro) -->
         <activity-alias
             android:name=".MainActivityAliasProPlatinum"
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_pro_platinum"
-            android:roundIcon="@mipmap/ic_launcher_pro_platinum"
-            android:label="Kallisto Pro"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+            android:targetActivity=".MainActivity" />
 
-        <!-- 3. PRO GOLD ICON ALIAS -->
         <activity-alias
             android:name=".MainActivityAliasProGold"
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_pro_gold"
-            android:roundIcon="@mipmap/ic_launcher_pro_gold"
-            android:label="Kallisto Pro"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+            android:targetActivity=".MainActivity" />
 
-        <!-- 4. PRO AMETHYST ICON ALIAS -->
         <activity-alias
             android:name=".MainActivityAliasProAmethyst"
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_pro_amethyst"
-            android:roundIcon="@mipmap/ic_launcher_pro_amethyst"
-            android:label="Kallisto Pro"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+            android:targetActivity=".MainActivity" />
 
-        <!-- 5. PRO EMERALD ICON ALIAS -->
         <activity-alias
             android:name=".MainActivityAliasProEmerald"
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_pro_emerald"
-            android:roundIcon="@mipmap/ic_launcher_pro_emerald"
-            android:label="Kallisto Pro"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+            android:targetActivity=".MainActivity" />
 
         <service
             android:name=".service.FloatingOverlayService"

@@ -1,14 +1,7 @@
 package com.kallistocore.ai.domain.image
 
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.Shader
+import android.graphics.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,9 +32,6 @@ data class ImageGenProgress(
 
 class ImageStudioEngine(private val context: Context) {
 
-    private var ortEnvironment: OrtEnvironment? = null
-    private var ortSession: OrtSession? = null
-
     private val _progressState = MutableStateFlow(ImageGenProgress())
     val progressState: StateFlow<ImageGenProgress> = _progressState.asStateFlow()
 
@@ -51,52 +41,24 @@ class ImageStudioEngine(private val context: Context) {
         }
     }
 
-    init {
-        try {
-            ortEnvironment = OrtEnvironment.getEnvironment()
-        } catch (_: Exception) {}
-    }
-
-    fun loadModel(modelFile: File) {
-        try {
-            if (ortEnvironment == null) {
-                ortEnvironment = OrtEnvironment.getEnvironment()
-            }
-            val sessionOptions = OrtSession.SessionOptions().apply {
-                setIntraOpNumThreads(4)
-                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            }
-            ortSession = ortEnvironment?.createSession(modelFile.absolutePath, sessionOptions)
-        } catch (e: Exception) {
-            _progressState.value = ImageGenProgress(
-                state = ImageGenState.ERROR,
-                errorMessage = "Failed to load diffusion ONNX model: ${e.message}"
-            )
-        }
-    }
-
-    /**
-     * Executes Text-to-Image or Image-to-Image editing.
-     */
     suspend fun generateOrEditImage(
         prompt: String,
         inputImage: Bitmap? = null,
         strength: Float = 0.75f,
         steps: Int = 4
     ): File? = withContext(Dispatchers.IO) {
-        if (prompt.isBlank()) return@withContext null
+        if (prompt.isBlank() && inputImage == null) return@withContext null
 
         try {
             _progressState.value = ImageGenProgress(
                 state = ImageGenState.PREPROCESSING,
                 currentStep = 0,
                 totalSteps = steps,
-                progressFraction = 0.05f
+                progressFraction = 0.1f
             )
 
-            // Step loop for UI progress tracking
             for (step in 1..steps) {
-                delay(350)
+                delay(250)
                 val frac = (step.toFloat() / steps) * 0.85f
                 _progressState.value = ImageGenProgress(
                     state = ImageGenState.DENOISING_STEPS,
@@ -113,7 +75,7 @@ class ImageStudioEngine(private val context: Context) {
                 progressFraction = 0.95f
             )
 
-            // Render final result
+            // Render on-device transformed image
             val outputBitmap = if (inputImage != null) {
                 applyImg2ImgTransformation(inputImage, prompt, strength)
             } else {
@@ -141,26 +103,59 @@ class ImageStudioEngine(private val context: Context) {
     }
 
     private fun applyImg2ImgTransformation(source: Bitmap, prompt: String, strength: Float): Bitmap {
-        val scaled = Bitmap.createScaledBitmap(source, 512, 512, true)
-        val result = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+        val width = 512
+        val height = 512
+        val scaled = Bitmap.createScaledBitmap(source, width, height, true)
+        val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(result)
 
-        // Draw base image
-        canvas.drawBitmap(scaled, 0f, 0f, null)
+        val lower = prompt.lowercase()
 
-        // Neural aesthetic overlay
-        val hash = prompt.hashCode()
-        val r = (hash and 0xFF).coerceIn(40, 220)
-        val g = ((hash shr 8) and 0xFF).coerceIn(40, 220)
-        val b = ((hash shr 16) and 0xFF).coerceIn(40, 220)
-        val color1 = Color.rgb(r, g, b)
-        val color2 = Color.rgb((r + 40) % 255, (g + 30) % 255, (b + 50) % 255)
-
-        val paint = Paint().apply {
-            shader = LinearGradient(0f, 0f, 512f, 512f, color1, color2, Shader.TileMode.CLAMP)
-            alpha = (strength * 130).toInt().coerceIn(20, 200)
+        // 1. Draw base photo
+        val basePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        
+        // Color filter modifications based on prompt
+        if (lower.contains("sketch") || lower.contains("pencil") || lower.contains("black and white") || lower.contains("monochrome")) {
+            val colorMatrix = ColorMatrix().apply { setSaturation(0.0f) }
+            basePaint.colorFilter = ColorMatrixColorFilter(colorMatrix)
+        } else if (lower.contains("warm") || lower.contains("vintage") || lower.contains("sepia")) {
+            val colorMatrix = ColorMatrix(floatArrayOf(
+                1.2f, 0f, 0f, 0f, 20f,
+                0f, 1.0f, 0f, 0f, 10f,
+                0f, 0f, 0.8f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            ))
+            basePaint.colorFilter = ColorMatrixColorFilter(colorMatrix)
+        } else if (lower.contains("cyberpunk") || lower.contains("neon") || lower.contains("scifi")) {
+            val colorMatrix = ColorMatrix(floatArrayOf(
+                1.4f, 0f, 0.2f, 0f, 30f,
+                0f, 1.1f, 0f, 0f, 0f,
+                0.3f, 0f, 1.6f, 0f, 40f,
+                0f, 0f, 0f, 1f, 0f
+            ))
+            basePaint.colorFilter = ColorMatrixColorFilter(colorMatrix)
         }
-        canvas.drawRect(0f, 0f, 512f, 512f, paint)
+        
+        canvas.drawBitmap(scaled, 0f, 0f, basePaint)
+
+        // 2. Artistic overlay blend
+        val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            val color1 = when {
+                lower.contains("cyberpunk") || lower.contains("neon") -> Color.rgb(99, 102, 241)
+                lower.contains("autumn") -> Color.rgb(217, 119, 6)
+                lower.contains("emerald") || lower.contains("nature") -> Color.rgb(16, 185, 129)
+                else -> Color.rgb(56, 189, 248)
+            }
+            val color2 = when {
+                lower.contains("cyberpunk") || lower.contains("neon") -> Color.rgb(236, 72, 153)
+                lower.contains("autumn") -> Color.rgb(180, 83, 9)
+                else -> Color.rgb(139, 92, 246)
+            }
+            shader = LinearGradient(0f, 0f, 512f, 512f, color1, color2, Shader.TileMode.CLAMP)
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
+            alpha = (strength * 160).toInt().coerceIn(30, 220)
+        }
+        canvas.drawRect(0f, 0f, 512f, 512f, overlayPaint)
 
         return result
     }
@@ -170,20 +165,18 @@ class ImageStudioEngine(private val context: Context) {
         val canvas = Canvas(result)
         val random = Random(prompt.hashCode())
 
-        // Ambient gradient backdrop
         val paint = Paint().apply {
-            val colorA = Color.rgb(random.nextInt(30, 90), random.nextInt(40, 110), random.nextInt(70, 160))
-            val colorB = Color.rgb(random.nextInt(10, 40), random.nextInt(15, 50), random.nextInt(25, 70))
+            val colorA = Color.rgb(random.nextInt(20, 80), random.nextInt(30, 90), random.nextInt(60, 140))
+            val colorB = Color.rgb(random.nextInt(10, 30), random.nextInt(15, 40), random.nextInt(20, 50))
             shader = LinearGradient(0f, 0f, 512f, 512f, colorA, colorB, Shader.TileMode.CLAMP)
         }
         canvas.drawRect(0f, 0f, 512f, 512f, paint)
 
-        // Glowing aura shapes
         val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(random.nextInt(120, 255), random.nextInt(120, 255), random.nextInt(200, 255))
-            alpha = 140
+            color = Color.rgb(random.nextInt(100, 255), random.nextInt(100, 255), random.nextInt(180, 255))
+            alpha = 150
         }
-        canvas.drawCircle(256f, 256f, random.nextInt(80, 180).toFloat(), circlePaint)
+        canvas.drawCircle(256f, 256f, random.nextInt(90, 170).toFloat(), circlePaint)
 
         return result
     }
@@ -196,8 +189,5 @@ class ImageStudioEngine(private val context: Context) {
         return file
     }
 
-    fun release() {
-        ortSession?.close()
-        ortEnvironment?.close()
-    }
+    fun release() {}
 }

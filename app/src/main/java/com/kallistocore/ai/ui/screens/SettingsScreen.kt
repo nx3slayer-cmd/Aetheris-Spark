@@ -57,14 +57,47 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(top = 12.dp, bottom = 32.dp)
     ) {
-        // 1. App Theme Selector
+        // 1. Model Hub & Storage Header
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "On-Device Model Hub",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary
+                )
+                Text(
+                    text = "Free Disk: $freeStorage",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.accentWave
+                )
+            }
+        }
+
+        // 2. Catalog Models (Llama 3.2, Qwen 2.5, Kokoro TTS, Img2Img)
+        items(ModelCatalog.curatedModels, key = { it.id }) { model ->
+            ModelHubCard(
+                model = model,
+                viewModel = viewModel,
+                downloadProgress = downloadStates[model.id]
+            )
+        }
+
+        // 3. Theme Selector
         item {
             Text(
                 text = "Aesthetic Theme",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 4.dp, top = 6.dp)
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -98,14 +131,14 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 2. Launcher App Icon Selector
+        // 4. Launcher App Icon Selector
         item {
             Text(
                 text = "Launcher App Icon Style",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
             )
             Column(
                 modifier = Modifier
@@ -151,26 +184,21 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                         }
 
                         if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Rounded.CheckCircle,
-                                contentDescription = "Selected",
-                                tint = colors.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = "Selected", tint = colors.primary, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
             }
         }
 
-        // 3. Chat Memory Bank Allocation
+        // 5. Chat Memory Bank Allocation
         item {
             Text(
                 text = "Chat Memory Bank Allocation",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
             )
             Column(
                 modifier = Modifier
@@ -187,17 +215,8 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(
-                            text = "Dedicated Memory Quota",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = colors.textPrimary
-                        )
-                        Text(
-                            text = "Persistent FTS SQLite + associative vector cache",
-                            fontSize = 11.sp,
-                            color = colors.textSecondary
-                        )
+                        Text(text = "Dedicated Memory Quota", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary)
+                        Text(text = "Persistent FTS SQLite + associative vector cache", fontSize = 11.sp, color = colors.textSecondary)
                     }
                     Text(
                         text = "${memoryAllocationMB.toInt()} MB (${String.format("%.1f", memoryAllocationMB / 1024.0)} GB)",
@@ -235,47 +254,14 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 4. Model Hub & Storage Header
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "On-Device Model Hub",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.textPrimary
-                )
-                Text(
-                    text = "Free Disk: $freeStorage",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.accentWave
-                )
-            }
-        }
-
-        // Catalog Model Items
-        items(ModelCatalog.curatedModels, key = { it.id }) { model ->
-            ModelHubCard(
-                model = model,
-                viewModel = viewModel,
-                downloadProgress = downloadStates[model.id]
-            )
-        }
-
-        // 5. Hardware & Engine Settings
+        // 6. Hardware Allocations
         item {
             Text(
                 text = "Hardware & Context Allocations",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
             )
             Column(
                 modifier = Modifier
@@ -287,10 +273,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Context Window Size", fontSize = 13.sp, color = colors.textPrimary)
                         Text("${contextSize.toInt()} Tokens", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.primary)
                     }
@@ -299,19 +282,12 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                         onValueChange = { contextSize = it },
                         valueRange = 2048f..8192f,
                         steps = 2,
-                        colors = SliderDefaults.colors(
-                            thumbColor = colors.primary,
-                            activeTrackColor = colors.primary,
-                            inactiveTrackColor = colors.surfaceVariant
-                        )
+                        colors = SliderDefaults.colors(thumbColor = colors.primary, activeTrackColor = colors.primary, inactiveTrackColor = colors.surfaceVariant)
                     )
                 }
 
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("ARM64 CPU Threads", fontSize = 13.sp, color = colors.textPrimary)
                         Text("${cpuThreads.toInt()} Cores", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.primary)
                     }
@@ -320,48 +296,9 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                         onValueChange = { cpuThreads = it },
                         valueRange = 2f..8f,
                         steps = 5,
-                        colors = SliderDefaults.colors(
-                            thumbColor = colors.primary,
-                            activeTrackColor = colors.primary,
-                            inactiveTrackColor = colors.surfaceVariant
-                        )
+                        colors = SliderDefaults.colors(thumbColor = colors.primary, activeTrackColor = colors.primary, inactiveTrackColor = colors.surfaceVariant)
                     )
                 }
-            }
-        }
-
-        // 6. System Prompt & Persona
-        item {
-            Text(
-                text = "System Prompt & Persona",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(colors.surface)
-                    .border(1.dp, colors.border, RoundedCornerShape(18.dp))
-                    .padding(14.dp)
-            ) {
-                BasicTextField(
-                    value = systemPromptText,
-                    onValueChange = {
-                        systemPromptText = it
-                        viewModel.systemPrompt.value = it
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    textStyle = TextStyle(
-                        color = colors.textPrimary,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    ),
-                    cursorBrush = SolidColor(colors.primary)
-                )
             }
         }
     }
@@ -393,18 +330,8 @@ fun ModelHubCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = model.name,
-                    fontSize = 14.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary
-                )
-                Text(
-                    text = model.description,
-                    fontSize = 11.5.sp,
-                    color = colors.textSecondary,
-                    lineHeight = 15.sp
-                )
+                Text(text = model.name, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                Text(text = model.description, fontSize = 11.5.sp, color = colors.textSecondary, lineHeight = 15.sp)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Box(
@@ -413,12 +340,7 @@ fun ModelHubCard(
                     .background(colors.surfaceVariant)
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Text(
-                    text = model.formattedSize,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.accentWave
-                )
+                Text(text = model.formattedSize, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.accentWave)
             }
         }
 
@@ -427,45 +349,28 @@ fun ModelHubCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Format: ${model.format.name} (${model.quantization}) • RAM: ~${model.ramRequirementMB} MB",
-                fontSize = 11.sp,
-                color = colors.textSecondary
-            )
+            Text(text = "Format: ${model.format.name} (${model.quantization}) • RAM: ~${model.ramRequirementMB} MB", fontSize = 11.sp, color = colors.textSecondary)
             if (isDownloaded) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(colors.statusSuccess))
                     Text("Downloaded", fontSize = 11.sp, color = colors.statusSuccess, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
 
-        Text(
-            text = "Path: ${modelFile.parentFile?.name}/${model.fileName}",
-            fontSize = 10.sp,
-            color = colors.textSecondary.copy(alpha = 0.7f)
-        )
+        Text(text = "Path: ${modelFile.parentFile?.name}/${model.fileName}", fontSize = 10.sp, color = colors.textSecondary.copy(alpha = 0.7f))
 
         if (isDownloading && downloadProgress != null) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Downloading chunk stream...", fontSize = 11.sp, color = colors.textSecondary)
                     Text("${(downloadProgress.progress * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.primary)
                 }
                 LinearProgressIndicator(
                     progress = { downloadProgress.progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(CircleShape),
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
                     color = colors.primary,
-                    trackColor = colors.surfaceVariant,
+                    trackColor = colors.surfaceVariant
                 )
             }
         }
@@ -478,10 +383,7 @@ fun ModelHubCard(
             if (isDownloaded) {
                 Button(
                     onClick = { viewModel.modelManager.autoSelectActiveModel(model) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(10.dp)),
+                    modifier = Modifier.weight(1f).height(38.dp).clip(RoundedCornerShape(10.dp)),
                     colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                 ) {
                     Text("Select as Active", fontSize = 12.sp, color = colors.onPrimary)
@@ -489,9 +391,7 @@ fun ModelHubCard(
 
                 Button(
                     onClick = { viewModel.deleteModel(model) },
-                    modifier = Modifier
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(10.dp)),
+                    modifier = Modifier.height(38.dp).clip(RoundedCornerShape(10.dp)),
                     colors = ButtonDefaults.buttonColors(containerColor = colors.error.copy(alpha = 0.15f))
                 ) {
                     Icon(imageVector = Icons.Rounded.Delete, contentDescription = "Delete", tint = colors.error, modifier = Modifier.size(16.dp))
@@ -501,10 +401,7 @@ fun ModelHubCard(
             } else {
                 Button(
                     onClick = { viewModel.downloadModel(model) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(10.dp)),
+                    modifier = Modifier.fillMaxWidth().height(38.dp).clip(RoundedCornerShape(10.dp)),
                     enabled = !isDownloading,
                     colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                 ) {
