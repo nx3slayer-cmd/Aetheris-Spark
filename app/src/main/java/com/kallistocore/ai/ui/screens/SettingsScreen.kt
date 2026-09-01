@@ -2,6 +2,7 @@ package com.kallistocore.ai.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.kallistocore.ai.data.manager.AppIconManager
 import com.kallistocore.ai.data.manager.AppIconStyle
 import com.kallistocore.ai.data.manager.ModelDownloadProgress
@@ -46,11 +48,15 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
     val activeImageId by viewModel.modelManager.activeImageModelId.collectAsState()
     val activeTtsId by viewModel.modelManager.activeTtsId.collectAsState()
 
-    var activeIconStyle by remember { mutableStateOf(AppIconManager.getActiveAppIcon(context)) }
-    var memoryAllocationMB by remember { mutableFloatStateOf(1024f) }
-    var contextSize by remember { mutableFloatStateOf(4096f) }
-    var cpuThreads by remember { mutableFloatStateOf(6f) }
+    var activeIconStyle by remember { mutableStateOf(viewModel.settingsRepo.activeIcon) }
+    var memoryAllocationMB by remember { mutableFloatStateOf(viewModel.settingsRepo.memoryAllocationMB.toFloat()) }
+    var contextSize by remember { mutableFloatStateOf(viewModel.settingsRepo.contextWindowSize.toFloat()) }
+    var cpuThreads by remember { mutableFloatStateOf(viewModel.settingsRepo.cpuThreads.toFloat()) }
+    var systemPromptText by remember { mutableStateOf(viewModel.settingsRepo.systemPrompt) }
     var hfTokenText by remember { mutableStateOf(viewModel.modelManager.hfToken) }
+
+    // Slider Confirmation Dialog State
+    var pendingSettingChange by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
 
     val freeStorage = viewModel.modelManager.formatBytes(viewModel.modelManager.getAvailableStorageBytes())
 
@@ -62,7 +68,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(top = 12.dp, bottom = 32.dp)
     ) {
-        // 1. Model Hub Header & Storage Info
+        // 1. Model Hub Header
         item {
             Row(
                 modifier = Modifier
@@ -133,7 +139,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 3. Catalog Model Items with Real Active State Badges
+        // 3. Catalog Models
         items(ModelCatalog.curatedModels, key = { it.id }) { model ->
             val isActive = when (model.category) {
                 com.kallistocore.ai.data.models.ModelCategory.CHAT_LLM -> activeLlmId == model.id
@@ -173,7 +179,10 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                             .clip(RoundedCornerShape(14.dp))
                             .background(if (isSelected) colors.primary else colors.surface)
                             .border(1.dp, if (isSelected) colors.primary else colors.border, RoundedCornerShape(14.dp))
-                            .clickable { viewModel.setTheme(theme) }
+                            .clickable {
+                                viewModel.setTheme(theme)
+                                viewModel.settingsRepo.theme = theme
+                            }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -206,6 +215,8 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                             .clickable {
                                 AppIconManager.setAppIcon(context, style)
                                 activeIconStyle = style
+                                viewModel.settingsRepo.activeIcon = style
+                                Toast.makeText(context, "Applied ${style.displayName}!", Toast.LENGTH_SHORT).show()
                             }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -223,7 +234,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 6. Memory Quota
+        // 6. Memory Quota Slider with Confirmation Dialog
         item {
             Text(text = "Chat Memory Bank Allocation", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             Column(
@@ -246,24 +257,22 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                 Slider(
                     value = memoryAllocationMB,
                     onValueChange = { memoryAllocationMB = it },
+                    onValueChangeFinished = {
+                        pendingSettingChange = "Change Memory Allocation to ${memoryAllocationMB.toInt()} MB?" to {
+                            viewModel.settingsRepo.memoryAllocationMB = memoryAllocationMB.toInt()
+                            Toast.makeText(context, "Memory Quota Updated!", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     valueRange = 512f..8192f,
                     steps = 14,
                     colors = SliderDefaults.colors(thumbColor = colors.primary, activeTrackColor = colors.primary, inactiveTrackColor = colors.surfaceVariant)
                 )
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { viewModel.pruneMemoryBank() }, colors = ButtonDefaults.textButtonColors(contentColor = colors.error)) {
-                        Icon(imageVector = Icons.Rounded.CleaningServices, contentDescription = "Prune", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Prune Old Memories", fontSize = 12.sp)
-                    }
-                }
             }
         }
 
-        // 7. Hardware Sliders
+        // 7. Hardware Allocations
         item {
-            Text(text = "Hardware & Context Allocations", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+            Text(text = "Hardware Allocations (12GB Phone Optimized)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -281,6 +290,12 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                     Slider(
                         value = contextSize,
                         onValueChange = { contextSize = it },
+                        onValueChangeFinished = {
+                            pendingSettingChange = "Set Context Window to ${contextSize.toInt()} tokens?" to {
+                                viewModel.settingsRepo.contextWindowSize = contextSize.toInt()
+                                Toast.makeText(context, "Context Window Saved!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         valueRange = 2048f..8192f,
                         steps = 2,
                         colors = SliderDefaults.colors(thumbColor = colors.primary, activeTrackColor = colors.primary, inactiveTrackColor = colors.surfaceVariant)
@@ -289,16 +304,68 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
 
                 Column {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("ARM64 CPU Threads", fontSize = 13.sp, color = colors.textPrimary)
+                        Text("ARM64 CPU Cores", fontSize = 13.sp, color = colors.textPrimary)
                         Text("${cpuThreads.toInt()} Cores", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.primary)
                     }
                     Slider(
                         value = cpuThreads,
                         onValueChange = { cpuThreads = it },
+                        onValueChangeFinished = {
+                            pendingSettingChange = "Allocate ${cpuThreads.toInt()} CPU cores for inference?" to {
+                                viewModel.settingsRepo.cpuThreads = cpuThreads.toInt()
+                                Toast.makeText(context, "CPU Thread Allocation Saved!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         valueRange = 2f..8f,
                         steps = 5,
                         colors = SliderDefaults.colors(thumbColor = colors.primary, activeTrackColor = colors.primary, inactiveTrackColor = colors.surfaceVariant)
                     )
+                }
+            }
+        }
+    }
+
+    // Slider Confirmation Dialog
+    pendingSettingChange?.let { (promptText, onConfirmAction) ->
+        Dialog(onDismissRequest = { pendingSettingChange = null }) {
+            Column(
+                modifier = Modifier
+                    .width(300.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(colors.surface)
+                    .border(1.5.dp, colors.border, RoundedCornerShape(20.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(text = "Confirm Setting Change", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                Text(text = promptText, fontSize = 13.sp, color = colors.textSecondary)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = {
+                        // Revert slider back to saved repo value
+                        memoryAllocationMB = viewModel.settingsRepo.memoryAllocationMB.toFloat()
+                        contextSize = viewModel.settingsRepo.contextWindowSize.toFloat()
+                        cpuThreads = viewModel.settingsRepo.cpuThreads.toFloat()
+                        pendingSettingChange = null
+                    }) {
+                        Text("Cancel", color = colors.textSecondary)
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            onConfirmAction()
+                            pendingSettingChange = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
+                    ) {
+                        Text("Apply & Save", color = colors.onPrimary)
+                    }
                 }
             }
         }
@@ -418,7 +485,6 @@ fun ModelHubCard(
             }
         }
 
-        // Action Buttons: Active Indicator / Select / Delete / Download
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),

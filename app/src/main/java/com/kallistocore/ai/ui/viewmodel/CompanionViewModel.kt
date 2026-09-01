@@ -9,6 +9,7 @@ import com.kallistocore.ai.data.db.KallistoDatabase
 import com.kallistocore.ai.data.db.MessageEntity
 import com.kallistocore.ai.data.manager.ModelManager
 import com.kallistocore.ai.data.models.AIModelInfo
+import com.kallistocore.ai.data.repository.SettingsRepository
 import com.kallistocore.ai.domain.image.AspectRatioOption
 import com.kallistocore.ai.domain.image.ImageGenProgress
 import com.kallistocore.ai.domain.image.ImageStudioEngine
@@ -46,6 +47,7 @@ enum class MainTab {
 
 class CompanionViewModel(application: Application) : AndroidViewModel(application) {
 
+    val settingsRepo = SettingsRepository(application)
     private val db = KallistoDatabase.getInstance(application)
     private val memoryDao = db.memoryBankDao()
 
@@ -58,7 +60,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     private val _currentTab = MutableStateFlow(MainTab.CHAT)
     val currentTab: StateFlow<MainTab> = _currentTab.asStateFlow()
 
-    private val _currentTheme = MutableStateFlow(AppThemeSetting.MIDNIGHT_DARK)
+    private val _currentTheme = MutableStateFlow(settingsRepo.theme)
     val currentTheme: StateFlow<AppThemeSetting> = _currentTheme.asStateFlow()
 
     private val _currentSessionId = MutableStateFlow(UUID.randomUUID().toString())
@@ -80,14 +82,12 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Voice Engine: Enabled by default once active
     val ttsPlaybackState: StateFlow<TtsPlaybackState> = ttsEngine.playbackState
-    var selectedVoiceProfile = MutableStateFlow("af_heart (Warm American)")
-    var speechSpeed = MutableStateFlow(1.0f)
-    var speechPitch = MutableStateFlow(1.0f)
-    var isVoiceAutoSpeak = MutableStateFlow(true)
+    var selectedVoiceProfile = MutableStateFlow(settingsRepo.voiceProfile)
+    var speechSpeed = MutableStateFlow(settingsRepo.voiceSpeed)
+    var speechPitch = MutableStateFlow(settingsRepo.voicePitch)
+    var isVoiceAutoSpeak = MutableStateFlow(settingsRepo.isVoiceAutoSpeak)
 
-    // Image Studio Tool State
     val imageProgressState: StateFlow<ImageGenProgress> = imageStudio.progressState
     var selectedSourceImage = MutableStateFlow<Bitmap?>(null)
     var selectedAspectRatio = MutableStateFlow(AspectRatioOption.SQUARE_1_1)
@@ -96,10 +96,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     var forceSquareCrop = MutableStateFlow(false)
     var img2imgStrength = MutableStateFlow(0.75f)
 
-    var allocatedMemoryBankMB = MutableStateFlow(1024)
-    var contextWindowSize = MutableStateFlow(4096)
-    var cpuThreads = MutableStateFlow(6)
-    var systemPrompt = MutableStateFlow("You are Kallisto, an autonomous offline AI companion running locally on this device.")
+    var systemPrompt = MutableStateFlow(settingsRepo.systemPrompt)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -112,21 +109,15 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Dynamic Model Swapper: Unloads unused models when switching tabs to conserve device RAM.
-     */
     fun selectTab(tab: MainTab) {
         _currentTab.value = tab
-
         viewModelScope.launch(Dispatchers.IO) {
             when (tab) {
                 MainTab.CHAT -> {
-                    // Chat Active: Free up image generation buffers
                     imageStudio.clearMemoryBuffers()
                     System.gc()
                 }
                 MainTab.IMAGE_STUDIO -> {
-                    // Studio Active: Stop active voice and clear memory caches to maximize RAM for Diffusion
                     ttsEngine.stopAudio()
                     System.gc()
                 }
@@ -137,6 +128,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setTheme(theme: AppThemeSetting) {
         _currentTheme.value = theme
+        settingsRepo.theme = theme
     }
 
     fun sendMessage(userText: String, sourceImage: Bitmap? = null) {
@@ -183,7 +175,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                             id = aiMsgId,
                             sessionId = sessionId,
                             role = "assistant",
-                            content = "I created this image on-device for you.",
+                            content = "I processed your image request (${imageStudio.progressState.value.outputDimensions}) on-device and saved it to DCIM/KallistoAI.",
                             imageFilePath = generatedArt.absolutePath
                         )
                     )

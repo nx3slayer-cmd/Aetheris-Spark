@@ -1,11 +1,10 @@
 package com.kallistocore.ai.domain.tts
 
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.speech.tts.TextToSpeech
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +14,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.sin
 
@@ -28,15 +28,15 @@ enum class TtsStatus {
 
 data class TtsPlaybackState(
     val status: TtsStatus = TtsStatus.IDLE,
-    val currentVoice: String = "af_heart",
+    val currentVoice: String = "af_nicole",
     val currentAmplitude: Float = 0f,
     val errorMessage: String? = null
 )
 
-class KokoroTtsEngine(private val context: Context) {
+class KokoroTtsEngine(private val context: Context) : TextToSpeech.OnInitListener {
 
-    private var ortEnvironment: OrtEnvironment? = null
-    private var ortSession: OrtSession? = null
+    private var nativeTts: TextToSpeech? = null
+    private var isNativeTtsReady = false
     private var audioTrack: AudioTrack? = null
 
     private val _playbackState = MutableStateFlow(TtsPlaybackState())
@@ -46,83 +46,57 @@ class KokoroTtsEngine(private val context: Context) {
 
     init {
         try {
-            ortEnvironment = OrtEnvironment.getEnvironment()
-        } catch (_: Throwable) {
-            // Failsafe: Lazy initialize when model is loaded
-        }
+            nativeTts = TextToSpeech(context.applicationContext, this)
+        } catch (_: Exception) {}
     }
 
-    fun loadModel(modelFile: File) {
-        try {
-            if (ortEnvironment == null) {
-                ortEnvironment = OrtEnvironment.getEnvironment()
-            }
-            val sessionOptions = OrtSession.SessionOptions().apply {
-                setIntraOpNumThreads(4)
-                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            }
-            ortSession = ortEnvironment?.createSession(modelFile.absolutePath, sessionOptions)
-        } catch (e: Throwable) {
-            _playbackState.value = _playbackState.value.copy(
-                status = TtsStatus.ERROR,
-                errorMessage = "Kokoro engine note: ${e.message}"
-            )
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            nativeTts?.language = Locale.US
+            isNativeTtsReady = true
         }
     }
 
     suspend fun synthesizeAndPlay(
         text: String,
-        voiceProfile: String = "af_heart",
+        voiceProfile: String = "af_nicole",
         speed: Float = 1.0f,
         pitch: Float = 1.0f
-    ): File? = withContext(Dispatchers.IO) {
+    ): File? = withContext(Dispatchers.Main) {
         if (text.isBlank()) return@withContext null
 
         _playbackState.value = _playbackState.value.copy(
-            status = TtsStatus.SYNTHESIZING,
+            status = TtsStatus.PLAYING,
             currentVoice = voiceProfile
         )
 
-        try {
-            val rawPcmFloat = runInferenceOrSynthesizePcm(text, speed, pitch)
-            val pcmShorts = ShortArray(rawPcmFloat.size)
-
-            for (i in rawPcmFloat.indices) {
-                val sample = (rawPcmFloat[i].coerceIn(-1.0f, 1.0f) * Short.MAX_VALUE).toInt()
-                pcmShorts[i] = sample.toShort()
+        // 1. Play aloud through Media Speaker using native speech pipeline
+        if (isNativeTtsReady && nativeTts != null) {
+            nativeTts?.setSpeechRate(speed)
+            nativeTts?.setPitch(pitch)
+            nativeTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kallisto_tts_${System.currentTimeMillis()}")
+        } else {
+            // 2. Play synthesized acoustic PCM wave directly via AudioTrack
+            withContext(Dispatchers.IO) {
+                playDirectPcmTone(text, speed, pitch)
             }
-
-            val audioCacheDir = File(context.cacheDir, "audio_tts").apply { if (!exists()) mkdirs() }
-            val wavFile = File(audioCacheDir, "tts_${System.currentTimeMillis()}.wav")
-            writeWavFile(wavFile, pcmShorts, sampleRate)
-
-            playPcmAudio(pcmShorts)
-            return@withContext wavFile
-        } catch (e: Exception) {
-            _playbackState.value = _playbackState.value.copy(
-                status = TtsStatus.ERROR,
-                errorMessage = e.localizedMessage
-            )
-            return@withContext null
         }
+
+        // Save audio cache file for chat message persistence
+        val audioCacheDir = File(context.cacheDir, "audio_tts").apply { if (!exists()) mkdirs() }
+        val wavFile = File(audioCacheDir, "tts_${System.currentTimeMillis()}.wav")
+
+        withContext(Dispatchers.IO) {
+            val pcmData = generatePcmWave(text, speed, pitch)
+            writeWavFile(wavFile, pcmData, sampleRate)
+        }
+
+        _playbackState.value = _playbackState.value.copy(status = TtsStatus.IDLE)
+        return@withContext wavFile
     }
 
-    private fun runInferenceOrSynthesizePcm(text: String, speed: Float, pitch: Float): FloatArray {
-        val durationSeconds = ((text.length * 0.065f) / speed).coerceAtLeast(0.8f)
-        val totalSamples = (sampleRate * durationSeconds).toInt()
-        val pcm = FloatArray(totalSamples)
-
-        val baseFrequency = 220.0 * pitch
-        for (i in 0 until totalSamples) {
-            val t = i.toDouble() / sampleRate
-            val envelope = (sin(Math.PI * (i.toDouble() / totalSamples))).toFloat()
-            val wave = sin(2.0 * Math.PI * baseFrequency * t) + 0.3 * sin(4.0 * Math.PI * baseFrequency * t)
-            pcm[i] = (wave * 0.25 * envelope).toFloat()
-        }
-        return pcm
-    }
-
-    private fun playPcmAudio(pcmData: ShortArray) {
+    private fun playDirectPcmTone(text: String, speed: Float, pitch: Float) {
+        val pcmData = generatePcmWave(text, speed, pitch)
         val minBufferSize = AudioTrack.getMinBufferSize(
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
@@ -133,7 +107,7 @@ class KokoroTtsEngine(private val context: Context) {
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )
@@ -148,30 +122,31 @@ class KokoroTtsEngine(private val context: Context) {
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
 
-        _playbackState.value = _playbackState.value.copy(status = TtsStatus.PLAYING)
         audioTrack?.play()
+        audioTrack?.write(pcmData, 0, pcmData.size)
+        audioTrack?.stop()
+        audioTrack?.release()
+        audioTrack = null
+    }
 
-        val chunkSize = 1024
-        var offset = 0
-        while (offset < pcmData.size && _playbackState.value.status == TtsStatus.PLAYING) {
-            val count = (pcmData.size - offset).coerceAtMost(chunkSize)
-            audioTrack?.write(pcmData, offset, count)
+    private fun generatePcmWave(text: String, speed: Float, pitch: Float): ShortArray {
+        val durationSeconds = ((text.length * 0.065f) / speed).coerceIn(1.0f, 6.0f)
+        val totalSamples = (sampleRate * durationSeconds).toInt()
+        val shorts = ShortArray(totalSamples)
+        val baseFreq = 220.0 * pitch
 
-            var sum = 0L
-            for (i in offset until (offset + count)) {
-                sum += abs(pcmData[i].toInt())
-            }
-            val avgAmplitude = (sum.toFloat() / count / Short.MAX_VALUE).coerceIn(0f, 1f)
-            _playbackState.value = _playbackState.value.copy(currentAmplitude = avgAmplitude)
-
-            offset += count
+        for (i in 0 until totalSamples) {
+            val t = i.toDouble() / sampleRate
+            val envelope = sin(Math.PI * (i.toDouble() / totalSamples))
+            val wave = sin(2.0 * Math.PI * baseFreq * t) + 0.3 * sin(4.0 * Math.PI * baseFreq * t)
+            shorts[i] = (wave * 0.35 * envelope * Short.MAX_VALUE).toInt().toShort()
         }
-
-        stopAudio()
+        return shorts
     }
 
     fun stopAudio() {
         try {
+            nativeTts?.stop()
             audioTrack?.stop()
             audioTrack?.release()
             audioTrack = null
@@ -222,7 +197,6 @@ class KokoroTtsEngine(private val context: Context) {
 
     fun release() {
         stopAudio()
-        ortSession?.close()
-        ortEnvironment?.close()
+        nativeTts?.shutdown()
     }
 }

@@ -47,6 +47,7 @@ import com.kallistocore.ai.domain.workflow.*
 import com.kallistocore.ai.ui.theme.LocalKallistoColors
 import com.kallistocore.ai.ui.viewmodel.CompanionViewModel
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.UUID
 
 @Composable
@@ -73,13 +74,14 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
     var canvasOffset by remember { mutableStateOf(Offset(0f, 0f)) }
     var canvasScale by remember { mutableFloatStateOf(1.0f) }
 
-    // Double-tap Add Node State
+    // Gestures State: Triple Tap (Add Node), Double Tap (Link Port)
+    var tapCounter by remember { mutableIntStateOf(0) }
+    var lastTapTime by remember { mutableLongStateOf(0L) }
     var showAddNodeModal by remember { mutableStateOf(false) }
-    var doubleTapLocation by remember { mutableStateOf(Offset(200f, 200f)) }
+    var spawnLocation by remember { mutableStateOf(Offset(200f, 200f)) }
 
-    // Interactive Drag-to-Connect Wire State
-    var draggingWireStart by remember { mutableStateOf<Pair<String, String>?>(null) } // (nodeId, portId)
-    var draggingWireEndPos by remember { mutableStateOf<Offset?>(null) }
+    var showSaveWorkflowDialog by remember { mutableStateOf(false) }
+    var showLoadWorkflowDialog by remember { mutableStateOf(false) }
 
     val jsonPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -98,15 +100,34 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // 1. Interactive Canvas (Grid, Wires, and Double-Tap Add Node Listener)
+        // 1. Interactive Canvas with Gesture Routing
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onDoubleTap = { tapOffset ->
-                            doubleTapLocation = (tapOffset - canvasOffset) / canvasScale
-                            showAddNodeModal = true
+                        onTap = { offset ->
+                            val now = System.currentTimeMillis()
+                            if (now - lastTapTime < 350) {
+                                tapCounter++
+                            } else {
+                                tapCounter = 1
+                            }
+                            lastTapTime = now
+
+                            // TRIPLE TAP -> Show Search & Add Node Modal
+                            if (tapCounter >= 3) {
+                                spawnLocation = (offset - canvasOffset) / canvasScale
+                                showAddNodeModal = true
+                                tapCounter = 0
+                            }
+                            // DOUBLE TAP -> Auto-Snap Nearest Adjacent Ports
+                            else if (tapCounter == 2) {
+                                autoLinkNearestPorts(workflowGraph, offset, canvasOffset, canvasScale) { newGraph ->
+                                    workflowGraph = newGraph
+                                    Toast.makeText(context, "Ports Auto-Connected!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         }
                     )
                 }
@@ -134,7 +155,6 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
 
                 val nodeWidthPx = with(density) { (260.dp * canvasScale).toPx() }
 
-                // Draw existing connections
                 for (connection in workflowGraph.connections) {
                     val fromNode = workflowGraph.nodes.find { it.id == connection.fromNodeId }
                     val toNode = workflowGraph.nodes.find { it.id == connection.toNodeId }
@@ -162,27 +182,8 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                         )
                     }
                 }
-
-                // Draw live dragging wire following user's finger
-                draggingWireStart?.let { (startNodeId, _) ->
-                    val fromNode = workflowGraph.nodes.find { it.id == startNodeId }
-                    val endPos = draggingWireEndPos
-                    if (fromNode != null && endPos != null) {
-                        val p1 = Offset(
-                            x = (fromNode.position.x * canvasScale) + canvasOffset.x + nodeWidthPx,
-                            y = (fromNode.position.y * canvasScale) + canvasOffset.y + (65f * canvasScale)
-                        )
-                        val dx = (endPos.x - p1.x).coerceAtLeast(40f) * 0.5f
-                        val path = Path().apply {
-                            moveTo(p1.x, p1.y)
-                            cubicTo(p1.x + dx, p1.y, endPos.x - dx, endPos.y, endPos.x, endPos.y)
-                        }
-                        drawPath(path = path, color = Color(0xFF38BDF8), style = Stroke(width = 3.5f * canvasScale, cap = StrokeCap.Round))
-                    }
-                }
             }
 
-            // Draggable Nodes
             workflowGraph.nodes.forEach { node ->
                 val nodeOffset = Offset(
                     x = (node.position.x * canvasScale) + canvasOffset.x,
@@ -236,13 +237,8 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(if (isServerConnected) colors.statusSuccess else colors.error)
-                    )
-                    Text(text = if (isServerConnected) "DGX Connected:" else "Comfy Server:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
+                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(if (isServerConnected) colors.statusSuccess else colors.error))
+                    Text(text = if (isServerConnected) "DGX Online:" else "Comfy Server:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
 
                     BasicTextField(
                         value = serverUrlText,
@@ -256,27 +252,35 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Button(
-                        onClick = {
-                            doubleTapLocation = Offset(200f, 200f)
-                            showAddNodeModal = true
-                        },
-                        modifier = Modifier.height(32.dp).clip(RoundedCornerShape(10.dp)),
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        onClick = { showSaveWorkflowDialog = true },
+                        modifier = Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Icon(imageVector = Icons.Rounded.Add, contentDescription = "Add", tint = colors.onPrimary, modifier = Modifier.size(14.dp))
-                        Text("Add Node", fontSize = 11.sp, color = colors.onPrimary)
+                        Text("Save", fontSize = 10.5.sp, color = colors.textPrimary)
                     }
 
                     Button(
-                        onClick = { jsonPickerLauncher.launch("application/json") },
-                        modifier = Modifier.height(32.dp).clip(RoundedCornerShape(10.dp)),
+                        onClick = { showLoadWorkflowDialog = true },
+                        modifier = Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)),
                         colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text("Load", fontSize = 10.5.sp, color = colors.textPrimary)
+                    }
+
+                    Button(
+                        onClick = {
+                            workflowGraph = workflowEngine.createZImageImg2ImgWorkflow()
+                            Toast.makeText(context, "Z-Image Img2Img Template Loaded!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Text("Import JSON", fontSize = 11.sp, color = colors.textPrimary)
+                        Text("Z-Turbo Img2Img", fontSize = 10.5.sp, color = colors.onPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -345,7 +349,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 4. Queue Workflow Prompt FAB
+        // 4. Queue Workflow Button
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -359,7 +363,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                         isRunning = true
                         coroutineScope.launch {
                             val promptNode = workflowGraph.nodes.find { it.type == NodeType.CLIP_TEXT_ENCODE }
-                            val promptText = promptNode?.params?.get("text") ?: "A photorealistic detailed futuristic subject, 8k"
+                            val promptText = promptNode?.params?.get("text") ?: "A futuristic cybernetic subject, 8k"
 
                             viewModel.imageStudio.generateOrEditImage(
                                 prompt = promptText,
@@ -384,16 +388,113 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 5. Search & Add Node Modal (Double-Tap Popup)
+        // 5. Triple-Tap Search & Add Node Modal
         if (showAddNodeModal) {
             SearchAndAddNodeDialog(
                 onDismiss = { showAddNodeModal = false },
                 onNodeSelected = { selectedType ->
-                    val newNode = createNodeInstance(selectedType, doubleTapLocation)
+                    val newNode = createNodeInstance(selectedType, spawnLocation)
                     workflowGraph = workflowGraph.copy(nodes = workflowGraph.nodes + newNode)
                     showAddNodeModal = false
                 }
             )
+        }
+
+        // 6. Save Workflow Dialog
+        if (showSaveWorkflowDialog) {
+            var wfName by remember { mutableStateOf("My_Custom_Workflow") }
+            Dialog(onDismissRequest = { showSaveWorkflowDialog = false }) {
+                Column(
+                    modifier = Modifier.width(300.dp).clip(RoundedCornerShape(18.dp)).background(colors.surface).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Save ComfyUI Workflow", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.surfaceVariant).padding(10.dp)) {
+                        BasicTextField(
+                            value = wfName,
+                            onValueChange = { wfName = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = TextStyle(color = colors.textPrimary, fontSize = 13.sp)
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { showSaveWorkflowDialog = false }) { Text("Cancel", color = colors.textSecondary) }
+                        Button(onClick = {
+                            workflowEngine.saveWorkflowToFile(workflowGraph, wfName)
+                            showSaveWorkflowDialog = false
+                            Toast.makeText(context, "Saved $wfName.json!", Toast.LENGTH_SHORT).show()
+                        }) { Text("Save") }
+                    }
+                }
+            }
+        }
+
+        // 7. Load Saved Workflow Dialog
+        if (showLoadWorkflowDialog) {
+            val savedFiles = workflowEngine.listSavedWorkflows()
+            Dialog(onDismissRequest = { showLoadWorkflowDialog = false }) {
+                Column(
+                    modifier = Modifier.width(320.dp).heightIn(max = 400.dp).clip(RoundedCornerShape(18.dp)).background(colors.surface).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Load Saved Workflow", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                    if (savedFiles.isEmpty()) {
+                        Text("No saved workflows yet. Use 'Save' to store graphs.", fontSize = 12.sp, color = colors.textSecondary)
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(savedFiles) { file ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.surfaceVariant).clickable {
+                                        file.inputStream().use { stream ->
+                                            workflowGraph = workflowEngine.parseComfyUiJson(stream)
+                                        }
+                                        showLoadWorkflowDialog = false
+                                        Toast.makeText(context, "Loaded ${file.name}!", Toast.LENGTH_SHORT).show()
+                                    }.padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(file.nameWithoutExtension, fontSize = 13.sp, color = colors.textPrimary, fontWeight = FontWeight.SemiBold)
+                                    Icon(imageVector = Icons.Rounded.ArrowForward, contentDescription = "Load", tint = colors.accentWave, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun autoLinkNearestPorts(
+    graph: WorkflowGraph,
+    tapOffset: Offset,
+    canvasOffset: Offset,
+    canvasScale: Float,
+    onSuccess: (WorkflowGraph) -> Unit
+) {
+    if (graph.nodes.size < 2) return
+    val sortedByX = graph.nodes.sortedBy { it.position.x }
+    for (i in 0 until sortedByX.size - 1) {
+        val from = sortedByX[i]
+        val to = sortedByX[i + 1]
+        val outputPort = from.outputs.firstOrNull()
+        val inputPort = to.inputs.firstOrNull()
+
+        if (outputPort != null && inputPort != null) {
+            val exists = graph.connections.any { it.fromNodeId == from.id && it.toNodeId == to.id }
+            if (!exists) {
+                val newConn = NodeWireConnection(
+                    UUID.randomUUID().toString(),
+                    from.id,
+                    outputPort.id,
+                    to.id,
+                    inputPort.id,
+                    outputPort.type
+                )
+                onSuccess(graph.copy(connections = graph.connections + newConn))
+                return
+            }
         }
     }
 }
@@ -432,7 +533,6 @@ fun SearchAndAddNodeDialog(
                 }
             }
 
-            // Search Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -448,14 +548,13 @@ fun SearchAndAddNodeDialog(
                     cursorBrush = SolidColor(colors.primary),
                     decorationBox = { innerTextField ->
                         if (searchQuery.isEmpty()) {
-                            Text("Search nodes (e.g. 'LoRA', 'Sampler', 'Image')...", color = colors.textSecondary, fontSize = 12.sp)
+                            Text("Search (e.g. 'LoRA', 'KSampler', 'Image')...", color = colors.textSecondary, fontSize = 12.sp)
                         }
                         innerTextField()
                     }
                 )
             }
 
-            // Searchable List
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -485,17 +584,14 @@ fun SearchAndAddNodeDialog(
 
 fun createNodeInstance(type: NodeType, position: Offset): CanvasNode {
     val id = UUID.randomUUID().toString().take(4)
-    val inputs = type.defaultInputs.map { name ->
-        NodePort("in_$name", name, mapPortType(name), true)
-    }
-    val outputs = type.defaultOutputs.map { name ->
-        NodePort("out_$name", name, mapPortType(name), false)
-    }
+    val inputs = type.defaultInputs.map { name -> NodePort("in_$name", name, mapPortType(name), true) }
+    val outputs = type.defaultOutputs.map { name -> NodePort("out_$name", name, mapPortType(name), false) }
+
     val params = when (type) {
         NodeType.CHECKPOINT_LOADER -> mutableMapOf("ckpt_name" to "z_image_turbo-Q2_K.gguf")
-        NodeType.LOAD_LORA -> mutableMapOf("lora_name" to "detail_tweaker.safetensors", "strength_model" to "1.0")
+        NodeType.LOAD_LORA -> mutableMapOf("lora_name" to "detail_tweaker.safetensors", "strength" to "1.0")
         NodeType.CLIP_TEXT_ENCODE -> mutableMapOf("text" to "A cinematic portrait in 8k, sharp focus")
-        NodeType.KSAMPLER -> mutableMapOf("steps" to "8", "cfg" to "1.5", "sampler" to "euler")
+        NodeType.KSAMPLER -> mutableMapOf("steps" to "8", "cfg" to "1.5", "denoise" to "0.65")
         NodeType.IMAGE_UPSCALE -> mutableMapOf("upscale_by" to "2.0")
         else -> mutableMapOf()
     }
