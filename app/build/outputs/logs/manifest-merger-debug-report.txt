@@ -162,7 +162,7 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /home/qp/.gradle/caches/8.9
 	android:allowBackup
 		ADDED from /home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:23:9-36
 	android:theme
-		ADDED from /home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:28:9-66
+		ADDED from /home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:28:9-50
 	android:usesCleartextTraffic
 		ADDED from /home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:29:9-45
 	android:name

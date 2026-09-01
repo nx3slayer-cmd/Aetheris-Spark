@@ -724,16 +724,17 @@ public final class MemoryBankDao_Impl implements MemoryBankDao {
   public Object searchMemoriesFts(final String query, final int limit,
       final Continuation<? super List<MemoryEntryEntity>> $completion) {
     final String _sql = "\n"
-            + "        SELECT m.* FROM memory_entries m\n"
-            + "        JOIN memory_entries_fts fts ON m.id = fts.rowid\n"
-            + "        WHERE memory_entries_fts MATCH ?\n"
-            + "        ORDER BY m.importance DESC\n"
+            + "        SELECT * FROM memory_entries \n"
+            + "        WHERE content LIKE '%' || ? || '%' OR `key` LIKE '%' || ? || '%'\n"
+            + "        ORDER BY importance DESC \n"
             + "        LIMIT ?\n"
             + "    ";
-    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
     int _argIndex = 1;
     _statement.bindString(_argIndex, query);
     _argIndex = 2;
+    _statement.bindString(_argIndex, query);
+    _argIndex = 3;
     _statement.bindLong(_argIndex, limit);
     final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
     return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<MemoryEntryEntity>>() {

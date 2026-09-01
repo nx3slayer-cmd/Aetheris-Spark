@@ -74,8 +74,8 @@
 40-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:26:9-53
 41        android:supportsRtl="true"
 41-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:27:9-35
-42        android:theme="@android:style/Theme.Material.NoActionBar"
-42-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:28:9-66
+42        android:theme="@style/Theme.KallistoCore"
+42-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:28:9-50
 43        android:usesCleartextTraffic="false" >
 43-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:29:9-45
 44

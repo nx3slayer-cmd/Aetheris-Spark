@@ -8,7 +8,6 @@ import androidx.room.RoomOpenHelper;
 import androidx.room.migration.AutoMigrationSpec;
 import androidx.room.migration.Migration;
 import androidx.room.util.DBUtil;
-import androidx.room.util.FtsTableInfo;
 import androidx.room.util.TableInfo;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.SupportSQLiteOpenHelper;
@@ -44,13 +43,8 @@ public final class KallistoDatabase_Impl extends KallistoDatabase {
         db.execSQL("CREATE TABLE IF NOT EXISTS `memory_entries` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `key` TEXT NOT NULL, `content` TEXT NOT NULL, `importance` REAL NOT NULL, `timestamp` INTEGER NOT NULL, `sourceSessionId` TEXT, `embeddingVector` TEXT)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_memory_entries_key` ON `memory_entries` (`key`)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_memory_entries_timestamp` ON `memory_entries` (`timestamp`)");
-        db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS `memory_entries_fts` USING FTS4(`key` TEXT NOT NULL, `content` TEXT NOT NULL, content=`memory_entries`)");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_BEFORE_UPDATE BEFORE UPDATE ON `memory_entries` BEGIN DELETE FROM `memory_entries_fts` WHERE `docid`=OLD.`rowid`; END");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_BEFORE_DELETE BEFORE DELETE ON `memory_entries` BEGIN DELETE FROM `memory_entries_fts` WHERE `docid`=OLD.`rowid`; END");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_AFTER_UPDATE AFTER UPDATE ON `memory_entries` BEGIN INSERT INTO `memory_entries_fts`(`docid`, `key`, `content`) VALUES (NEW.`rowid`, NEW.`key`, NEW.`content`); END");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_AFTER_INSERT AFTER INSERT ON `memory_entries` BEGIN INSERT INTO `memory_entries_fts`(`docid`, `key`, `content`) VALUES (NEW.`rowid`, NEW.`key`, NEW.`content`); END");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'efaf269303de73874bf0c3da8f0ccbc9')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ab98a69275d668fa4e8a6c6f06483fa5')");
       }
 
       @Override
@@ -58,7 +52,6 @@ public final class KallistoDatabase_Impl extends KallistoDatabase {
         db.execSQL("DROP TABLE IF EXISTS `conversation_sessions`");
         db.execSQL("DROP TABLE IF EXISTS `chat_messages`");
         db.execSQL("DROP TABLE IF EXISTS `memory_entries`");
-        db.execSQL("DROP TABLE IF EXISTS `memory_entries_fts`");
         final List<? extends RoomDatabase.Callback> _callbacks = mCallbacks;
         if (_callbacks != null) {
           for (RoomDatabase.Callback _callback : _callbacks) {
@@ -96,10 +89,6 @@ public final class KallistoDatabase_Impl extends KallistoDatabase {
 
       @Override
       public void onPostMigrate(@NonNull final SupportSQLiteDatabase db) {
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_BEFORE_UPDATE BEFORE UPDATE ON `memory_entries` BEGIN DELETE FROM `memory_entries_fts` WHERE `docid`=OLD.`rowid`; END");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_BEFORE_DELETE BEFORE DELETE ON `memory_entries` BEGIN DELETE FROM `memory_entries_fts` WHERE `docid`=OLD.`rowid`; END");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_AFTER_UPDATE AFTER UPDATE ON `memory_entries` BEGIN INSERT INTO `memory_entries_fts`(`docid`, `key`, `content`) VALUES (NEW.`rowid`, NEW.`key`, NEW.`content`); END");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_memory_entries_fts_AFTER_INSERT AFTER INSERT ON `memory_entries` BEGIN INSERT INTO `memory_entries_fts`(`docid`, `key`, `content`) VALUES (NEW.`rowid`, NEW.`key`, NEW.`content`); END");
       }
 
       @Override
@@ -161,19 +150,9 @@ public final class KallistoDatabase_Impl extends KallistoDatabase {
                   + " Expected:\n" + _infoMemoryEntries + "\n"
                   + " Found:\n" + _existingMemoryEntries);
         }
-        final HashSet<String> _columnsMemoryEntriesFts = new HashSet<String>(3);
-        _columnsMemoryEntriesFts.add("key");
-        _columnsMemoryEntriesFts.add("content");
-        final FtsTableInfo _infoMemoryEntriesFts = new FtsTableInfo("memory_entries_fts", _columnsMemoryEntriesFts, "CREATE VIRTUAL TABLE IF NOT EXISTS `memory_entries_fts` USING FTS4(`key` TEXT NOT NULL, `content` TEXT NOT NULL, content=`memory_entries`)");
-        final FtsTableInfo _existingMemoryEntriesFts = FtsTableInfo.read(db, "memory_entries_fts");
-        if (!_infoMemoryEntriesFts.equals(_existingMemoryEntriesFts)) {
-          return new RoomOpenHelper.ValidationResult(false, "memory_entries_fts(com.kallistocore.ai.data.db.MemoryFtsEntity).\n"
-                  + " Expected:\n" + _infoMemoryEntriesFts + "\n"
-                  + " Found:\n" + _existingMemoryEntriesFts);
-        }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "efaf269303de73874bf0c3da8f0ccbc9", "6554e724d2f581323b9393df2a7b42f6");
+    }, "ab98a69275d668fa4e8a6c6f06483fa5", "e7dc1cef47b994ce458ca7439c2fd804");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;
@@ -182,10 +161,9 @@ public final class KallistoDatabase_Impl extends KallistoDatabase {
   @Override
   @NonNull
   protected InvalidationTracker createInvalidationTracker() {
-    final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(1);
-    _shadowTablesMap.put("memory_entries_fts", "memory_entries");
+    final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(0);
     final HashMap<String, Set<String>> _viewTables = new HashMap<String, Set<String>>(0);
-    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "conversation_sessions","chat_messages","memory_entries","memory_entries_fts");
+    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "conversation_sessions","chat_messages","memory_entries");
   }
 
   @Override
@@ -197,7 +175,6 @@ public final class KallistoDatabase_Impl extends KallistoDatabase {
       _db.execSQL("DELETE FROM `conversation_sessions`");
       _db.execSQL("DELETE FROM `chat_messages`");
       _db.execSQL("DELETE FROM `memory_entries`");
-      _db.execSQL("DELETE FROM `memory_entries_fts`");
       super.setTransactionSuccessful();
     } finally {
       super.endTransaction();

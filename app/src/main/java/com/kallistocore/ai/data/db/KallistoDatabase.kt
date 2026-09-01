@@ -9,8 +9,7 @@ import androidx.room.RoomDatabase
     entities = [
         ConversationSessionEntity::class,
         MessageEntity::class,
-        MemoryEntryEntity::class,
-        MemoryFtsEntity::class
+        MemoryEntryEntity::class
     ],
     version = 1,
     exportSchema = false

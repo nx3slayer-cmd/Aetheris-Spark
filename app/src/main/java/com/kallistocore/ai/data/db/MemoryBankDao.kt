@@ -6,10 +6,6 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface MemoryBankDao {
 
-    // ==========================================
-    // 1. Session Management
-    // ==========================================
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: ConversationSessionEntity)
 
@@ -21,10 +17,6 @@ interface MemoryBankDao {
 
     @Query("DELETE FROM conversation_sessions WHERE sessionId = :sessionId")
     suspend fun deleteSession(sessionId: String)
-
-    // ==========================================
-    // 2. Chat Message Stream
-    // ==========================================
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: MessageEntity)
@@ -41,10 +33,6 @@ interface MemoryBankDao {
     @Query("SELECT COUNT(*) FROM chat_messages")
     suspend fun getTotalMessageCount(): Int
 
-    // ==========================================
-    // 3. Long-Term Memory Bank & Full-Text Search
-    // ==========================================
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMemory(memory: MemoryEntryEntity): Long
 
@@ -54,14 +42,10 @@ interface MemoryBankDao {
     @Query("SELECT * FROM memory_entries WHERE `key` = :key LIMIT 1")
     suspend fun getMemoryByKey(key: String): MemoryEntryEntity?
 
-    /**
-     * Executes lightning-fast keyword and semantic context lookup using SQLite FTS.
-     */
     @Query("""
-        SELECT m.* FROM memory_entries m
-        JOIN memory_entries_fts fts ON m.id = fts.rowid
-        WHERE memory_entries_fts MATCH :query
-        ORDER BY m.importance DESC
+        SELECT * FROM memory_entries 
+        WHERE content LIKE '%' || :query || '%' OR `key` LIKE '%' || :query || '%'
+        ORDER BY importance DESC 
         LIMIT :limit
     """)
     suspend fun searchMemoriesFts(query: String, limit: Int = 10): List<MemoryEntryEntity>
@@ -71,10 +55,6 @@ interface MemoryBankDao {
 
     @Query("DELETE FROM memory_entries")
     suspend fun clearAllMemories()
-
-    // ==========================================
-    // 4. Storage Quota & Capacity Monitoring
-    // ==========================================
 
     @Query("SELECT SUM(LENGTH(content)) FROM memory_entries")
     suspend fun getApproximateMemoryBankSizeBytes(): Long?
