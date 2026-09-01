@@ -56,7 +56,63 @@ object ModelCatalog {
 
     val curatedModels: List<AIModelInfo> = listOf(
         // ==========================================
-        // 1. Conversational On-Device LLMs
+        // 1. Z-Image Turbo & Diffusion Models
+        // ==========================================
+        AIModelInfo(
+            id = "z-image-turbo-8step",
+            name = "Z-Image Turbo (8-Step S3-DiT)",
+            description = "State-of-the-art 8-step Diffusion Transformer. Incredible photorealism, hands, and prompt adherence.",
+            category = ModelCategory.IMAGE_GEN_AND_EDIT,
+            format = ModelFormat.GGUF,
+            fileName = "z_image_turbo_q4_k.gguf",
+            sizeBytes = 2_450_000_000L, // ~2.28 GB
+            downloadUrl = "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
+            quantization = "Q4_K / INT8",
+            ramRequirementMB = 3400,
+            supportsImg2Img = true
+        ),
+        AIModelInfo(
+            id = "z-image-edit-mobile",
+            name = "Z-Image Edit (Fast Img2Img)",
+            description = "Fine-tuned specifically for natural language image-to-image photo transformations.",
+            category = ModelCategory.IMAGE_GEN_AND_EDIT,
+            format = ModelFormat.ONNX,
+            fileName = "z_image_edit_quant.onnx",
+            sizeBytes = 1_650_000_000L, // ~1.53 GB
+            downloadUrl = "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/z_image_turbo.safetensors",
+            quantization = "INT8",
+            ramRequirementMB = 2600,
+            supportsImg2Img = true
+        ),
+        AIModelInfo(
+            id = "sd-turbo-lcm-img2img",
+            name = "SD-Turbo LCM Fast Img2Img",
+            description = "Ultra-fast 2-4 step mobile engine for instant sketch-to-art and fast stylization.",
+            category = ModelCategory.IMAGE_GEN_AND_EDIT,
+            format = ModelFormat.ONNX,
+            fileName = "sd_turbo_lcm_int8.onnx",
+            sizeBytes = 1_180_000_000L, // ~1.10 GB
+            downloadUrl = "https://huggingface.co/kallistocore/sd-turbo-mobile/resolve/main/sd_turbo_lcm_int8.onnx",
+            quantization = "INT8",
+            ramRequirementMB = 1800,
+            supportsImg2Img = true
+        ),
+        AIModelInfo(
+            id = "instruct-pix2pix-mobile",
+            name = "InstructPix2Pix Mobile",
+            description = "Prompt-based photo editing (e.g. 'make it snowy', 'turn day to night').",
+            category = ModelCategory.IMAGE_GEN_AND_EDIT,
+            format = ModelFormat.ONNX,
+            fileName = "instruct_pix2pix_quant_int8.onnx",
+            sizeBytes = 890_000_000L, // ~848 MB
+            downloadUrl = "https://huggingface.co/kallistocore/instruct-pix2pix-mobile/resolve/main/instruct_pix2pix_quant_int8.onnx",
+            quantization = "INT8",
+            ramRequirementMB = 1400,
+            supportsImg2Img = true
+        ),
+
+        // ==========================================
+        // 2. Conversational LLMs
         // ==========================================
         AIModelInfo(
             id = "llama-3.2-3b-q4",
@@ -69,19 +125,6 @@ object ModelCatalog {
             downloadUrl = "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
             quantization = "Q4_K_M",
             ramRequirementMB = 2800,
-            supportsChat = true
-        ),
-        AIModelInfo(
-            id = "llama-3.2-1b-q4",
-            name = "Llama 3.2 1B Instruct (Ultra-Light)",
-            description = "High-speed compact model designed for maximum battery saving on Android.",
-            category = ModelCategory.CHAT_LLM,
-            format = ModelFormat.GGUF,
-            fileName = "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-            sizeBytes = 780_000_000L, // ~744 MB
-            downloadUrl = "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-            quantization = "Q4_K_M",
-            ramRequirementMB = 1200,
             supportsChat = true
         ),
         AIModelInfo(
@@ -99,7 +142,7 @@ object ModelCatalog {
         ),
 
         // ==========================================
-        // 2. Kokoro-82M TTS Voice Engines
+        // 3. Kokoro-82M Voice Engine
         // ==========================================
         AIModelInfo(
             id = "kokoro-82m-onnx",
@@ -113,62 +156,6 @@ object ModelCatalog {
             quantization = "FP16 / INT8",
             ramRequirementMB = 220,
             supportsVoiceSynthesis = true
-        ),
-        AIModelInfo(
-            id = "kokoro-voices-bundle",
-            name = "Kokoro Voices Pack (af_heart, bella, adam)",
-            description = "Voice character weight profiles for Kokoro TTS audio generation.",
-            category = ModelCategory.VOICE_TTS,
-            format = ModelFormat.ONNX,
-            fileName = "voices_bundle.bin",
-            sizeBytes = 29_000_000L, // ~28 MB
-            downloadUrl = "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices.bin",
-            quantization = "Raw Tensor Data",
-            ramRequirementMB = 50,
-            supportsVoiceSynthesis = true
-        ),
-
-        // ==========================================
-        // 3. Image Generation & Img2Img Editing Models
-        // ==========================================
-        AIModelInfo(
-            id = "instruct-pix2pix-mobile",
-            name = "InstructPix2Pix Mobile (Img2Img)",
-            description = "Prompt-based image-to-image editing. Modifies your photos using natural language.",
-            category = ModelCategory.IMAGE_GEN_AND_EDIT,
-            format = ModelFormat.ONNX,
-            fileName = "instruct_pix2pix_quant_int8.onnx",
-            sizeBytes = 890_000_000L, // ~848 MB
-            downloadUrl = "https://huggingface.co/kallistocore/instruct-pix2pix-mobile/resolve/main/instruct_pix2pix_quant_int8.onnx",
-            quantization = "INT8",
-            ramRequirementMB = 1600,
-            supportsImg2Img = true
-        ),
-        AIModelInfo(
-            id = "sd-turbo-lcm-img2img",
-            name = "SD-Turbo LCM Fast Img2Img",
-            description = "Ultra-fast 2-4 step diffusion engine for instant image variations and sketch-to-art.",
-            category = ModelCategory.IMAGE_GEN_AND_EDIT,
-            format = ModelFormat.ONNX,
-            fileName = "sd_turbo_lcm_int8.onnx",
-            sizeBytes = 1_180_000_000L, // ~1.10 GB
-            downloadUrl = "https://huggingface.co/kallistocore/sd-turbo-mobile/resolve/main/sd_turbo_lcm_int8.onnx",
-            quantization = "INT8",
-            ramRequirementMB = 1900,
-            supportsImg2Img = true
-        ),
-        AIModelInfo(
-            id = "mobilediffusion-lite",
-            name = "MobileDiffusion Lite (Text-to-Image)",
-            description = "Sub-second on-device text-to-image generation optimized for mobile ARM NPU/GPU.",
-            category = ModelCategory.IMAGE_GEN_AND_EDIT,
-            format = ModelFormat.ONNX,
-            fileName = "mobilediffusion_quant.onnx",
-            sizeBytes = 540_000_000L, // ~515 MB
-            downloadUrl = "https://huggingface.co/kallistocore/mobilediffusion/resolve/main/mobilediffusion_quant.onnx",
-            quantization = "INT8",
-            ramRequirementMB = 1100,
-            supportsImg2Img = false
         )
     )
 
