@@ -55,14 +55,12 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     val searchController = DeviceSearchController(application)
     val llmEngine = LlmInferenceEngine(application)
 
-    // Navigation & Theme
     private val _currentTab = MutableStateFlow(MainTab.CHAT)
     val currentTab: StateFlow<MainTab> = _currentTab.asStateFlow()
 
     private val _currentTheme = MutableStateFlow(AppThemeSetting.MIDNIGHT_DARK)
     val currentTheme: StateFlow<AppThemeSetting> = _currentTheme.asStateFlow()
 
-    // Active Session
     private val _currentSessionId = MutableStateFlow(UUID.randomUUID().toString())
     val currentSessionId: StateFlow<String> = _currentSessionId.asStateFlow()
 
@@ -82,23 +80,20 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Voice Settings
     val ttsPlaybackState: StateFlow<TtsPlaybackState> = ttsEngine.playbackState
     var selectedVoiceProfile = MutableStateFlow("af_heart (Warm American)")
     var speechSpeed = MutableStateFlow(1.0f)
     var speechPitch = MutableStateFlow(1.0f)
     var isVoiceAutoSpeak = MutableStateFlow(true)
 
-    // Image Studio Tool Settings
     val imageProgressState: StateFlow<ImageGenProgress> = imageStudio.progressState
     var selectedSourceImage = MutableStateFlow<Bitmap?>(null)
     var selectedAspectRatio = MutableStateFlow(AspectRatioOption.SQUARE_1_1)
-    var selectedBaseResolution = MutableStateFlow(512) // 512, 768, 1024
-    var img2imgUpscaleMultiplier = MutableStateFlow(1.0f) // 0.75x, 1.0x, 1.5x, 2.0x
+    var selectedBaseResolution = MutableStateFlow(512)
+    var img2imgUpscaleMultiplier = MutableStateFlow(1.0f)
     var forceSquareCrop = MutableStateFlow(false)
     var img2imgStrength = MutableStateFlow(0.75f)
 
-    // Memory Allocation
     var allocatedMemoryBankMB = MutableStateFlow(1024)
     var contextWindowSize = MutableStateFlow(4096)
     var cpuThreads = MutableStateFlow(6)
@@ -133,7 +128,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             var userImagePath: String? = null
             if (sourceImage != null) {
                 val savedInput = imageStudio.saveBitmapToStorage(sourceImage, "input")
-                userImagePath = savedInput.absolutePath
+                userImagePath = savedInput?.absolutePath
             }
 
             memoryDao.insertMessage(
@@ -147,7 +142,6 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             )
             memoryDao.updateSessionTimestamp(sessionId)
 
-            // Image generation / editing trigger
             if (sourceImage != null || userText.startsWith("draw ") || userText.startsWith("generate image")) {
                 val generatedArt = imageStudio.generateOrEditImage(
                     prompt = userText,
@@ -166,7 +160,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                             id = aiMsgId,
                             sessionId = sessionId,
                             role = "assistant",
-                            content = "I processed your image request (${imageStudio.progressState.value.outputDimensions}) on-device.",
+                            content = "I processed your image request (${imageStudio.progressState.value.outputDimensions}) on-device and saved it to DCIM/KallistoAI.",
                             imageFilePath = generatedArt.absolutePath
                         )
                     )
@@ -174,7 +168,6 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
 
-            // Stream LLM
             val aiMsgId = UUID.randomUUID().toString()
             var accumulatedText = ""
 
@@ -201,7 +194,6 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
 
-            // Kokoro Voice Audio Playback
             if (isVoiceAutoSpeak.value && accumulatedText.isNotBlank()) {
                 val audioFile = ttsEngine.synthesizeAndPlay(
                     text = accumulatedText,

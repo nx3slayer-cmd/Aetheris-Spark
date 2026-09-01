@@ -385,7 +385,11 @@ class ImageStudioEngine(private val context: Context) {
         return result
     }
 
-    private fun saveToDcimAndGallery(bitmap: Bitmap, prefix: String): File? {
+    fun saveBitmapToStorage(bitmap: Bitmap, prefix: String = "kallisto"): File? {
+        return saveToDcimAndGallery(bitmap, prefix)
+    }
+
+    fun saveToDcimAndGallery(bitmap: Bitmap, prefix: String): File? {
         val fileName = "Kallisto_${prefix}_${System.currentTimeMillis()}.png"
 
         try {
