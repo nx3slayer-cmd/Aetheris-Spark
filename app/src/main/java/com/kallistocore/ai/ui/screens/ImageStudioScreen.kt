@@ -1,13 +1,16 @@
 package com.kallistocore.ai.ui.screens
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -40,7 +44,6 @@ import com.kallistocore.ai.domain.image.ImageGenState
 import com.kallistocore.ai.ui.theme.LocalKallistoColors
 import com.kallistocore.ai.ui.viewmodel.CompanionViewModel
 import kotlinx.coroutines.launch
-import java.io.File
 
 @Composable
 fun ImageStudioScreen(viewModel: CompanionViewModel) {
@@ -64,9 +67,9 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
             progressState.state == ImageGenState.DENOISING_STEPS ||
             progressState.state == ImageGenState.POSTPROCESSING
 
-    // Auto-scroll to result when generated
-    LaunchedEffect(progressState.generatedFile) {
-        if (progressState.generatedFile != null) {
+    // Auto-scroll when generation completes
+    LaunchedEffect(progressState.generatedBitmap) {
+        if (progressState.generatedBitmap != null) {
             listState.animateScrollToItem(index = 2)
         }
     }
@@ -147,7 +150,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
 
-            // Source Photo Picker Card
+            // Source Photo Attachment Card
             item {
                 Box(
                     modifier = Modifier
@@ -167,8 +170,8 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                AsyncImage(
-                                    model = sourceBitmap,
+                                Image(
+                                    bitmap = sourceBitmap!!.asImageBitmap(),
                                     contentDescription = "Source",
                                     modifier = Modifier
                                         .size(100.dp)
@@ -196,8 +199,8 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
 
-            // Live Progress & Result Card
-            if (progressState.generatedFile != null || isGenerating) {
+            // Live Progress & Prominent Rendered Result Display
+            if (progressState.generatedBitmap != null || isGenerating) {
                 item {
                     Column(
                         modifier = Modifier
@@ -235,16 +238,37 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                             )
                         }
 
-                        if (progressState.generatedFile != null) {
-                            AsyncImage(
-                                model = File(progressState.generatedFile!!.absolutePath),
+                        // Direct In-Memory Bitmap Render
+                        if (progressState.generatedBitmap != null) {
+                            Image(
+                                bitmap = progressState.generatedBitmap!!.asImageBitmap(),
                                 contentDescription = "Rendered Result",
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(280.dp)
-                                    .clip(RoundedCornerShape(14.dp)),
+                                    .height(290.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color.Black),
                                 contentScale = ContentScale.Fit
                             )
+
+                            // DCIM Saved Confirmation Badge
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(colors.statusSuccess.copy(alpha = 0.15f))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = "Saved", tint = colors.statusSuccess, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "Saved to Gallery in DCIM/KallistoAI",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colors.statusSuccess
+                                )
+                            }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -256,6 +280,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                                             userText = if (promptText.isNotBlank()) promptText else "Generated artwork (${progressState.outputDimensions})",
                                             sourceImage = null
                                         )
+                                        Toast.makeText(context, "Sent to Chat!", Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier
                                         .weight(1f)
@@ -274,7 +299,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // Horizontal Sliding Tool Tray & Prompt Input Bar (Pinned to Bottom)
+        // Horizontal Sliding Tool Tray & Prompt Input Bar
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = colors.background
@@ -356,7 +381,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                         decorationBox = { innerTextField ->
                             if (promptText.isEmpty()) {
                                 Text(
-                                    text = if (sourceBitmap != null) "Describe style (e.g. 'cyberpunk', 'anime', 'oil painting')..." else "Type prompt (e.g. 'cozy futuristic city, 8k')...",
+                                    text = if (sourceBitmap != null) "Style (e.g. 'cyberpunk', 'sketch', 'anime', 'oil painting')..." else "Prompt (e.g. 'futuristic orbital city, 8k')...",
                                     color = colors.textSecondary,
                                     fontSize = 13.sp
                                 )
