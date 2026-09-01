@@ -9,11 +9,12 @@ import com.kallistocore.ai.data.db.KallistoDatabase
 import com.kallistocore.ai.data.db.MessageEntity
 import com.kallistocore.ai.data.manager.ModelManager
 import com.kallistocore.ai.data.models.AIModelInfo
+import com.kallistocore.ai.data.models.ModelCatalog
+import com.kallistocore.ai.data.models.ModelCategory
 import com.kallistocore.ai.data.repository.SettingsRepository
 import com.kallistocore.ai.domain.image.AspectRatioOption
 import com.kallistocore.ai.domain.image.ImageGenProgress
 import com.kallistocore.ai.domain.image.ImageStudioEngine
-import com.kallistocore.ai.domain.llm.LlmActionRequest
 import com.kallistocore.ai.domain.llm.LlmInferenceEngine
 import com.kallistocore.ai.domain.search.DeviceSearchController
 import com.kallistocore.ai.domain.tts.KokoroTtsEngine
@@ -106,6 +107,14 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                     title = "New Conversation"
                 )
             )
+
+            // Sync active model display name
+            modelManager.activeLlmId.collect { id ->
+                val model = ModelCatalog.curatedModels.find { it.id == id }
+                if (model != null) {
+                    llmEngine.setModelDisplayName(model.name)
+                }
+            }
         }
     }
 
@@ -155,44 +164,40 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             )
             memoryDao.updateSessionTimestamp(sessionId)
 
-            // Direct Image Generation Trigger
-            if (sourceImage != null || userText.startsWith("draw ") || userText.startsWith("generate image")) {
-                val prompt = userText.replace(Regex("^(draw|generate image of|generate image)\\s+", RegexOption.IGNORE_CASE), "").trim()
-                val generatedArt = imageStudio.generateOrEditImage(
-                    prompt = prompt,
-                    inputImage = sourceImage,
-                    aspectRatio = selectedAspectRatio.value,
-                    baseResolution = selectedBaseResolution.value,
-                    upscaleMultiplier = img2imgUpscaleMultiplier.value,
-                    forceSquareCrop = forceSquareCrop.value,
-                    strength = img2imgStrength.value
-                )
-
-                if (generatedArt != null) {
-                    val aiMsgId = UUID.randomUUID().toString()
-                    memoryDao.insertMessage(
-                        MessageEntity(
-                            id = aiMsgId,
-                            sessionId = sessionId,
-                            role = "assistant",
-                            content = "I processed your image request (${imageStudio.progressState.value.outputDimensions}) on-device and saved it to DCIM/KallistoAI.",
-                            imageFilePath = generatedArt.absolutePath
-                        )
-                    )
-                    return@launch
-                }
-            }
-
-            // Stream Conversational Response
             val aiMsgId = UUID.randomUUID().toString()
             var accumulatedText = ""
 
+            // Stream reasoning or trigger diffusion image generation directly from prompt
             llmEngine.streamResponse(
                 userPrompt = userText,
                 systemPrompt = systemPrompt.value,
                 sessionId = sessionId,
                 memoryDao = memoryDao,
-                searchController = searchController
+                searchController = searchController,
+                onImagePromptDetected = { imagePrompt ->
+                    viewModelScope.launch(Dispatchers.IO) {
+                        val generatedArt = imageStudio.generateOrEditImage(
+                            prompt = imagePrompt,
+                            inputImage = sourceImage,
+                            aspectRatio = selectedAspectRatio.value,
+                            baseResolution = selectedBaseResolution.value,
+                            upscaleMultiplier = img2imgUpscaleMultiplier.value,
+                            forceSquareCrop = forceSquareCrop.value,
+                            strength = img2imgStrength.value
+                        )
+                        if (generatedArt != null) {
+                            memoryDao.insertMessage(
+                                MessageEntity(
+                                    id = UUID.randomUUID().toString(),
+                                    sessionId = sessionId,
+                                    role = "assistant",
+                                    content = "Artwork synthesized for: \"$imagePrompt\"",
+                                    imageFilePath = generatedArt.absolutePath
+                                )
+                            )
+                        }
+                    }
+                }
             ).collect { token ->
                 accumulatedText += token
                 memoryDao.insertMessage(

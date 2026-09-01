@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
             KallistoTheme(themeSetting = currentTheme) {
                 val colors = LocalKallistoColors.current
                 val currentTab by viewModel.currentTab.collectAsState()
+                val llmState by viewModel.llmEngine.engineState.collectAsState()
 
                 Box(
                     modifier = Modifier
@@ -60,18 +61,14 @@ class MainActivity : ComponentActivity() {
                         .background(colors.background)
                 ) {
                     if (isInPipMode) {
-                        // Render Compact Floating Mode when running in Picture-in-Picture
-                        CompactFloatingOverlay(
-                            onExpand = {
-                                // Exiting PiP restores full layout
-                            }
-                        )
+                        CompactFloatingOverlay(onExpand = {})
                     } else {
-                        // Render Main Full-Screen Bento Scaffold
                         Scaffold(
                             containerColor = colors.background,
                             topBar = {
                                 MasterTopBar(
+                                    activeModelName = llmState.loadedModelName,
+                                    memoryQuotaMb = viewModel.settingsRepo.memoryAllocationMB,
                                     onEnterFloatingMode = { triggerPictureInPicture() }
                                 )
                             },
@@ -126,7 +123,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MasterTopBar(onEnterFloatingMode: () -> Unit) {
+fun MasterTopBar(
+    activeModelName: String,
+    memoryQuotaMb: Int,
+    onEnterFloatingMode: () -> Unit
+) {
     val colors = LocalKallistoColors.current
 
     Row(
@@ -155,7 +156,7 @@ fun MasterTopBar(onEnterFloatingMode: () -> Unit) {
                     color = colors.textPrimary
                 )
                 Text(
-                    text = "Llama 3.2 • Kokoro TTS • 1GB Memory",
+                    text = "$activeModelName • Kokoro TTS • ${memoryQuotaMb}MB Memory",
                     fontSize = 11.sp,
                     color = colors.textSecondary
                 )
@@ -203,30 +204,10 @@ fun MasterBentoBottomBar(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            BentoNavigationPill(
-                label = "Chat",
-                icon = Icons.Rounded.ChatBubbleOutline,
-                isSelected = currentTab == MainTab.CHAT,
-                onClick = { onTabSelected(MainTab.CHAT) }
-            )
-            BentoNavigationPill(
-                label = "Voice",
-                icon = Icons.Rounded.GraphicEq,
-                isSelected = currentTab == MainTab.VOICE,
-                onClick = { onTabSelected(MainTab.VOICE) }
-            )
-            BentoNavigationPill(
-                label = "Studio",
-                icon = Icons.Rounded.Brush,
-                isSelected = currentTab == MainTab.IMAGE_STUDIO,
-                onClick = { onTabSelected(MainTab.IMAGE_STUDIO) }
-            )
-            BentoNavigationPill(
-                label = "Settings",
-                icon = Icons.Rounded.Tune,
-                isSelected = currentTab == MainTab.SETTINGS,
-                onClick = { onTabSelected(MainTab.SETTINGS) }
-            )
+            BentoNavigationPill("Chat", Icons.Rounded.ChatBubbleOutline, currentTab == MainTab.CHAT) { onTabSelected(MainTab.CHAT) }
+            BentoNavigationPill("Voice", Icons.Rounded.GraphicEq, currentTab == MainTab.VOICE) { onTabSelected(MainTab.VOICE) }
+            BentoNavigationPill("Studio", Icons.Rounded.Brush, currentTab == MainTab.IMAGE_STUDIO) { onTabSelected(MainTab.IMAGE_STUDIO) }
+            BentoNavigationPill("Settings", Icons.Rounded.Tune, currentTab == MainTab.SETTINGS) { onTabSelected(MainTab.SETTINGS) }
         }
     }
 }
@@ -251,19 +232,9 @@ fun BentoNavigationPill(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = contentColor,
-            modifier = Modifier.size(17.dp)
-        )
+        Icon(imageVector = icon, contentDescription = label, tint = contentColor, modifier = Modifier.size(17.dp))
         if (isSelected) {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor
-            )
+            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = contentColor)
         }
     }
 }

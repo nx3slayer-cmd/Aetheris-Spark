@@ -47,7 +47,6 @@ import com.kallistocore.ai.domain.workflow.*
 import com.kallistocore.ai.ui.theme.LocalKallistoColors
 import com.kallistocore.ai.ui.viewmodel.CompanionViewModel
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.UUID
 
 @Composable
@@ -57,29 +56,25 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
     val workflowEngine = remember { ComfyUiWorkflowEngine(context) }
-    val comfyClient = viewModel.imageStudio.comfyClient
     val progressState by viewModel.imageProgressState.collectAsState()
 
     var workflowGraph by remember { mutableStateOf(workflowEngine.createDefaultWorkflow()) }
     var activeExecutingNodeId by remember { mutableStateOf<String?>(null) }
     var isRunning by remember { mutableStateOf(false) }
 
-    var serverUrlText by remember { mutableStateOf(comfyClient.serverUrl) }
-    var isServerConnected by remember { mutableStateOf(false) }
-
-    LaunchedEffect(serverUrlText) {
-        isServerConnected = comfyClient.checkServerConnection()
-    }
-
     var canvasOffset by remember { mutableStateOf(Offset(0f, 0f)) }
     var canvasScale by remember { mutableFloatStateOf(1.0f) }
 
-    // Gestures State: Triple Tap (Add Node), Double Tap (Link Port)
+    // Precision Port-to-Port Linking State
+    var selectedOutputPort by remember { mutableStateOf<Triple<String, String, PortType>?>(null) } // (nodeId, portId, type)
+
+    // Gesture State: Triple Tap for Node Search
     var tapCounter by remember { mutableIntStateOf(0) }
     var lastTapTime by remember { mutableLongStateOf(0L) }
     var showAddNodeModal by remember { mutableStateOf(false) }
     var spawnLocation by remember { mutableStateOf(Offset(200f, 200f)) }
 
+    var showPresetMenu by remember { mutableStateOf(false) }
     var showSaveWorkflowDialog by remember { mutableStateOf(false) }
     var showLoadWorkflowDialog by remember { mutableStateOf(false) }
 
@@ -90,6 +85,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             try {
                 context.contentResolver.openInputStream(it)?.use { stream ->
                     workflowGraph = workflowEngine.parseComfyUiJson(stream)
+                    Toast.makeText(context, "Imported ComfyUI Workflow!", Toast.LENGTH_SHORT).show()
                 }
             } catch (_: Exception) {}
         }
@@ -100,7 +96,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // 1. Interactive Canvas with Gesture Routing
+        // 1. Interactive Grid Canvas
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -115,18 +111,12 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                             }
                             lastTapTime = now
 
-                            // TRIPLE TAP -> Show Search & Add Node Modal
                             if (tapCounter >= 3) {
                                 spawnLocation = (offset - canvasOffset) / canvasScale
                                 showAddNodeModal = true
                                 tapCounter = 0
-                            }
-                            // DOUBLE TAP -> Auto-Snap Nearest Adjacent Ports
-                            else if (tapCounter == 2) {
-                                autoLinkNearestPorts(workflowGraph, offset, canvasOffset, canvasScale) { newGraph ->
-                                    workflowGraph = newGraph
-                                    Toast.makeText(context, "Ports Auto-Connected!", Toast.LENGTH_SHORT).show()
-                                }
+                            } else {
+                                selectedOutputPort = null // Clear wire selection on empty tap
                             }
                         }
                     )
@@ -155,6 +145,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
 
                 val nodeWidthPx = with(density) { (260.dp * canvasScale).toPx() }
 
+                // Draw existing connections
                 for (connection in workflowGraph.connections) {
                     val fromNode = workflowGraph.nodes.find { it.id == connection.fromNodeId }
                     val toNode = workflowGraph.nodes.find { it.id == connection.toNodeId }
@@ -175,15 +166,12 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                             cubicTo(p1.x + dx, p1.y, p2.x - dx, p2.y, p2.x, p2.y)
                         }
 
-                        drawPath(
-                            path = path,
-                            color = connection.portType.color.copy(alpha = 0.9f),
-                            style = Stroke(width = 3.5f * canvasScale, cap = StrokeCap.Round)
-                        )
+                        drawPath(path = path, color = connection.portType.color.copy(alpha = 0.9f), style = Stroke(width = 3.5f * canvasScale, cap = StrokeCap.Round))
                     }
                 }
             }
 
+            // Draggable Nodes with Tactile Port Taps
             workflowGraph.nodes.forEach { node ->
                 val nodeOffset = Offset(
                     x = (node.position.x * canvasScale) + canvasOffset.x,
@@ -196,6 +184,21 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     scale = canvasScale,
                     offset = nodeOffset,
                     isExecuting = isExecuting,
+                    selectedOutputPort = selectedOutputPort,
+                    onOutputPortTapped = { port ->
+                        selectedOutputPort = Triple(node.id, port.id, port.type)
+                        Toast.makeText(context, "Port ${port.name} selected. Tap an input port to link!", Toast.LENGTH_SHORT).show()
+                    },
+                    onInputPortTapped = { port ->
+                        selectedOutputPort?.let { (fromNodeId, fromPortId, pType) ->
+                            if (fromNodeId != node.id) {
+                                val newConn = NodeWireConnection(UUID.randomUUID().toString(), fromNodeId, fromPortId, node.id, port.id, pType)
+                                workflowGraph = workflowGraph.copy(connections = workflowGraph.connections + newConn)
+                                selectedOutputPort = null
+                                Toast.makeText(context, "Nodes Connected Successfully!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
                     onMove = { delta ->
                         node.position += delta / canvasScale
                         workflowGraph = workflowGraph.copy()
@@ -214,74 +217,84 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 2. Top Control HUD Bar
-        Column(
+        // 2. Compact Top HUD Bar with Job Presets Dropdown
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(colors.surface)
-                    .border(1.dp, if (isServerConnected) colors.statusSuccess else colors.border, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            // Job Presets Dropdown Pill
+            Box {
                 Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(colors.surface)
+                        .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                        .clickable { showPresetMenu = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(if (isServerConnected) colors.statusSuccess else colors.error))
-                    Text(text = if (isServerConnected) "DGX Online:" else "Comfy Server:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
-
-                    BasicTextField(
-                        value = serverUrlText,
-                        onValueChange = {
-                            serverUrlText = it
-                            comfyClient.serverUrl = it
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = TextStyle(color = colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium),
-                        cursorBrush = SolidColor(colors.primary)
-                    )
+                    Icon(imageVector = Icons.Rounded.AccountTree, contentDescription = "Presets", tint = colors.accentWave, modifier = Modifier.size(16.dp))
+                    Text(text = "Job Presets ▾", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(
-                        onClick = { showSaveWorkflowDialog = true },
-                        modifier = Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)),
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text("Save", fontSize = 10.5.sp, color = colors.textPrimary)
+                DropdownMenu(
+                    expanded = showPresetMenu,
+                    onDismissRequest = { showPresetMenu = false }
+                ) {
+                    JobPreset.values().forEach { preset ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(preset.displayName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(preset.description, fontSize = 11.sp, color = colors.textSecondary)
+                                }
+                            },
+                            onClick = {
+                                workflowGraph = workflowEngine.loadPresetWorkflow(preset)
+                                showPresetMenu = false
+                                Toast.makeText(context, "Loaded ${preset.displayName}!", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
+                }
+            }
 
-                    Button(
-                        onClick = { showLoadWorkflowDialog = true },
-                        modifier = Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)),
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text("Load", fontSize = 10.5.sp, color = colors.textPrimary)
-                    }
+            // Compact Action Buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(
+                    onClick = {
+                        doubleTapLocation = Offset(200f, 200f)
+                        showAddNodeModal = true
+                    },
+                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(colors.primary)
+                ) {
+                    Icon(imageVector = Icons.Rounded.Add, contentDescription = "Add", tint = colors.onPrimary, modifier = Modifier.size(18.dp))
+                }
 
-                    Button(
-                        onClick = {
-                            workflowGraph = workflowEngine.createZImageImg2ImgWorkflow()
-                            Toast.makeText(context, "Z-Image Img2Img Template Loaded!", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)),
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text("Z-Turbo Img2Img", fontSize = 10.5.sp, color = colors.onPrimary, fontWeight = FontWeight.Bold)
-                    }
+                IconButton(
+                    onClick = { showSaveWorkflowDialog = true },
+                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(colors.surfaceVariant)
+                ) {
+                    Icon(imageVector = Icons.Rounded.Save, contentDescription = "Save", tint = colors.textPrimary, modifier = Modifier.size(16.dp))
+                }
+
+                IconButton(
+                    onClick = { showLoadWorkflowDialog = true },
+                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(colors.surfaceVariant)
+                ) {
+                    Icon(imageVector = Icons.Rounded.FolderOpen, contentDescription = "Load", tint = colors.textPrimary, modifier = Modifier.size(16.dp))
+                }
+
+                IconButton(
+                    onClick = { jsonPickerLauncher.launch("application/json") },
+                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(colors.surfaceVariant)
+                ) {
+                    Icon(imageVector = Icons.Rounded.FileDownload, contentDescription = "Import", tint = colors.textPrimary, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -291,17 +304,17 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 80.dp, start = 16.dp, end = 16.dp),
+                    .padding(bottom = 80.dp, start = 14.dp, end = 14.dp),
                 contentAlignment = Alignment.BottomStart
             ) {
                 Column(
                     modifier = Modifier
-                        .width(280.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .width(260.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(colors.surface)
-                        .border(1.5.dp, colors.accentWave, RoundedCornerShape(18.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .border(1.5.dp, colors.accentWave, RoundedCornerShape(16.dp))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -317,7 +330,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                     if (isRunning) {
                         LinearProgressIndicator(
                             progress = { progressState.progressFraction },
-                            modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
+                            modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                             color = colors.primary,
                             trackColor = colors.surfaceVariant
                         )
@@ -327,7 +340,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                         Image(
                             bitmap = progressState.generatedBitmap!!.asImageBitmap(),
                             contentDescription = "Output",
-                            modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black),
+                            modifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black),
                             contentScale = ContentScale.Fit
                         )
 
@@ -336,11 +349,11 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                                 viewModel.sendMessage("Generated via ComfyUI workflow")
                                 Toast.makeText(context, "Sent to Chat!", Toast.LENGTH_SHORT).show()
                             },
-                            modifier = Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(8.dp)),
+                            modifier = Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(8.dp)),
                             colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
                             contentPadding = PaddingValues(0.dp)
                         ) {
-                            Icon(imageVector = Icons.AutoMirrored.Rounded.Send, contentDescription = "Send", tint = colors.onPrimary, modifier = Modifier.size(13.dp))
+                            Icon(imageVector = Icons.AutoMirrored.Rounded.Send, contentDescription = "Send", tint = colors.onPrimary, modifier = Modifier.size(12.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Send to Chat", fontSize = 11.sp, color = colors.onPrimary)
                         }
@@ -349,7 +362,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 4. Queue Workflow Button
+        // 4. Queue Workflow Prompt Button
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -363,7 +376,7 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                         isRunning = true
                         coroutineScope.launch {
                             val promptNode = workflowGraph.nodes.find { it.type == NodeType.CLIP_TEXT_ENCODE }
-                            val promptText = promptNode?.params?.get("text") ?: "A futuristic cybernetic subject, 8k"
+                            val promptText = promptNode?.params?.get("text") ?: "A detailed photorealistic subject, 8k"
 
                             viewModel.imageStudio.generateOrEditImage(
                                 prompt = promptText,
@@ -379,12 +392,12 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
                         }
                     }
                 },
-                modifier = Modifier.height(48.dp).clip(RoundedCornerShape(16.dp)),
+                modifier = Modifier.height(44.dp).clip(RoundedCornerShape(14.dp)),
                 colors = ButtonDefaults.buttonColors(containerColor = if (isRunning) colors.accentWave else colors.primary)
             ) {
                 Icon(imageVector = if (isRunning) Icons.Rounded.HourglassTop else Icons.Rounded.PlayArrow, contentDescription = "Run", tint = colors.onPrimary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = if (isRunning) "Running Graph..." else "Queue Workflow Prompt", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.onPrimary)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = if (isRunning) "Running Graph..." else "Queue Workflow Prompt", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = colors.onPrimary)
             }
         }
 
@@ -400,22 +413,14 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             )
         }
 
-        // 6. Save Workflow Dialog
+        // 6. Compact Save Workflow Dialog
         if (showSaveWorkflowDialog) {
             var wfName by remember { mutableStateOf("My_Custom_Workflow") }
             Dialog(onDismissRequest = { showSaveWorkflowDialog = false }) {
-                Column(
-                    modifier = Modifier.width(300.dp).clip(RoundedCornerShape(18.dp)).background(colors.surface).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text("Save ComfyUI Workflow", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                Column(modifier = Modifier.width(300.dp).clip(RoundedCornerShape(18.dp)).background(colors.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Save Workflow", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
                     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.surfaceVariant).padding(10.dp)) {
-                        BasicTextField(
-                            value = wfName,
-                            onValueChange = { wfName = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            textStyle = TextStyle(color = colors.textPrimary, fontSize = 13.sp)
-                        )
+                        BasicTextField(value = wfName, onValueChange = { wfName = it }, modifier = Modifier.fillMaxWidth(), textStyle = TextStyle(color = colors.textPrimary, fontSize = 13.sp))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { showSaveWorkflowDialog = false }) { Text("Cancel", color = colors.textSecondary) }
@@ -429,17 +434,14 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 7. Load Saved Workflow Dialog
+        // 7. Compact Load Workflow Dialog
         if (showLoadWorkflowDialog) {
             val savedFiles = workflowEngine.listSavedWorkflows()
             Dialog(onDismissRequest = { showLoadWorkflowDialog = false }) {
-                Column(
-                    modifier = Modifier.width(320.dp).heightIn(max = 400.dp).clip(RoundedCornerShape(18.dp)).background(colors.surface).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+                Column(modifier = Modifier.width(300.dp).heightIn(max = 360.dp).clip(RoundedCornerShape(18.dp)).background(colors.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Load Saved Workflow", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
                     if (savedFiles.isEmpty()) {
-                        Text("No saved workflows yet. Use 'Save' to store graphs.", fontSize = 12.sp, color = colors.textSecondary)
+                        Text("No saved workflows found.", fontSize = 12.sp, color = colors.textSecondary)
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             items(savedFiles) { file ->
@@ -466,39 +468,6 @@ fun NodeCanvasScreen(viewModel: CompanionViewModel) {
     }
 }
 
-fun autoLinkNearestPorts(
-    graph: WorkflowGraph,
-    tapOffset: Offset,
-    canvasOffset: Offset,
-    canvasScale: Float,
-    onSuccess: (WorkflowGraph) -> Unit
-) {
-    if (graph.nodes.size < 2) return
-    val sortedByX = graph.nodes.sortedBy { it.position.x }
-    for (i in 0 until sortedByX.size - 1) {
-        val from = sortedByX[i]
-        val to = sortedByX[i + 1]
-        val outputPort = from.outputs.firstOrNull()
-        val inputPort = to.inputs.firstOrNull()
-
-        if (outputPort != null && inputPort != null) {
-            val exists = graph.connections.any { it.fromNodeId == from.id && it.toNodeId == to.id }
-            if (!exists) {
-                val newConn = NodeWireConnection(
-                    UUID.randomUUID().toString(),
-                    from.id,
-                    outputPort.id,
-                    to.id,
-                    inputPort.id,
-                    outputPort.type
-                )
-                onSuccess(graph.copy(connections = graph.connections + newConn))
-                return
-            }
-        }
-    }
-}
-
 @Composable
 fun SearchAndAddNodeDialog(
     onDismiss: () -> Unit,
@@ -513,33 +482,17 @@ fun SearchAndAddNodeDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .width(320.dp)
-                .heightIn(max = 440.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(colors.surface)
-                .border(1.5.dp, colors.border, RoundedCornerShape(22.dp))
-                .padding(16.dp),
+            modifier = Modifier.width(320.dp).heightIn(max = 440.dp).clip(RoundedCornerShape(22.dp)).background(colors.surface).border(1.5.dp, colors.border, RoundedCornerShape(22.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "Add ComfyUI Node", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
                 IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
                     Icon(imageVector = Icons.Rounded.Close, contentDescription = "Close", tint = colors.textSecondary)
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.surfaceVariant)
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceVariant).padding(horizontal = 10.dp, vertical = 8.dp)) {
                 BasicTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -555,18 +508,10 @@ fun SearchAndAddNodeDialog(
                 )
             }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
+            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(filteredNodes) { nodeType ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(colors.surfaceVariant.copy(alpha = 0.5f))
-                            .clickable { onNodeSelected(nodeType) }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.surfaceVariant.copy(alpha = 0.5f)).clickable { onNodeSelected(nodeType) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -596,15 +541,7 @@ fun createNodeInstance(type: NodeType, position: Offset): CanvasNode {
         else -> mutableMapOf()
     }
 
-    return CanvasNode(
-        id = id,
-        type = type,
-        title = type.displayName,
-        position = position,
-        inputs = inputs,
-        outputs = outputs,
-        params = params
-    )
+    return CanvasNode(id = id, type = type, title = type.displayName, position = position, inputs = inputs, outputs = outputs, params = params)
 }
 
 fun mapPortType(name: String): PortType {
@@ -626,6 +563,9 @@ fun DraggableBentoNode(
     scale: Float,
     offset: Offset,
     isExecuting: Boolean,
+    selectedOutputPort: Triple<String, String, PortType>?,
+    onOutputPortTapped: (NodePort) -> Unit,
+    onInputPortTapped: (NodePort) -> Unit,
     onMove: (delta: Offset) -> Unit,
     onToggleCollapse: () -> Unit,
     onDeleteNode: () -> Unit
@@ -665,10 +605,7 @@ fun DraggableBentoNode(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)) {
                     Box(modifier = Modifier.size((8 * scale).dp).clip(CircleShape).background(if (isExecuting) colors.statusSuccess else colors.primary))
                     Text(text = node.title, fontSize = (11.5 * scale).sp, fontWeight = FontWeight.Bold, color = colors.textPrimary, maxLines = 1)
                 }
@@ -685,13 +622,23 @@ fun DraggableBentoNode(
 
             if (!node.isCollapsed) {
                 Column(modifier = Modifier.padding((10 * scale).dp), verticalArrangement = Arrangement.spacedBy((6 * scale).dp)) {
+                    // Input Ports with Tap Listener
                     node.inputs.forEach { port ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)) {
-                            Box(modifier = Modifier.size((10 * scale).dp).clip(CircleShape).background(port.type.color))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onInputPortTapped(port) }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy((6 * scale).dp)
+                        ) {
+                            Box(modifier = Modifier.size((12 * scale).dp).clip(CircleShape).background(port.type.color))
                             Text(text = port.name, fontSize = (10 * scale).sp, color = colors.textSecondary)
                         }
                     }
 
+                    // Node Parameters
                     node.params.forEach { (key, value) ->
                         Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((8 * scale).dp)).background(colors.surfaceVariant.copy(alpha = 0.5f)).padding((5 * scale).dp)) {
                             Text(text = key.uppercase(), fontSize = (8.5 * scale).sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
@@ -699,11 +646,27 @@ fun DraggableBentoNode(
                         }
                     }
 
+                    // Output Ports with Highlight and Tap Listener
                     node.outputs.forEach { port ->
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = port.name, fontSize = (10 * scale).sp, color = colors.textSecondary)
+                        val isPortSelected = selectedOutputPort?.first == node.id && selectedOutputPort?.second == port.id
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onOutputPortTapped(port) }
+                                .padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = port.name, fontSize = (10 * scale).sp, color = if (isPortSelected) colors.accentWave else colors.textSecondary, fontWeight = if (isPortSelected) FontWeight.Bold else FontWeight.Normal)
                             Spacer(modifier = Modifier.width((6 * scale).dp))
-                            Box(modifier = Modifier.size((10 * scale).dp).clip(CircleShape).background(port.type.color))
+                            Box(
+                                modifier = Modifier
+                                    .size((14 * scale).dp)
+                                    .clip(CircleShape)
+                                    .background(port.type.color)
+                                    .border(if (isPortSelected) 2.dp else 0.dp, Color.White, CircleShape)
+                            )
                         }
                     }
                 }
