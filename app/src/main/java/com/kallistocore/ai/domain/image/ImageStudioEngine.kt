@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.OutputStream
 import kotlin.math.*
 import kotlin.random.Random
 
@@ -75,7 +74,7 @@ class ImageStudioEngine(private val context: Context) {
                 forceSquareCrop = forceSquareCrop
             )
 
-            // Step 1: Preprocessing & Color Channel Decomposition
+            // Step 1: Color Decomposition
             _progressState.value = ImageGenProgress(
                 state = ImageGenState.PREPROCESSING,
                 currentStep = 1,
@@ -178,9 +177,6 @@ class ImageStudioEngine(private val context: Context) {
         return Pair(w, h)
     }
 
-    /**
-     * Executes real pixel mathematical transformations based on prompt keywords.
-     */
     private fun executeActualImg2ImgTransformation(
         source: Bitmap,
         prompt: String,
@@ -205,31 +201,22 @@ class ImageStudioEngine(private val context: Context) {
         val lower = prompt.lowercase()
 
         when {
-            // 1. True Pencil / Charcoal Sketch Filter
             lower.contains("sketch") || lower.contains("pencil") || lower.contains("drawing") || lower.contains("charcoal") -> {
                 val sketchBmp = applyPencilSketchFilter(scaled)
                 canvas.drawBitmap(sketchBmp, 0f, 0f, null)
             }
-
-            // 2. Cyberpunk / Neon Synthwave Matrix
             lower.contains("cyberpunk") || lower.contains("neon") || lower.contains("synthwave") || lower.contains("futuristic") -> {
                 val cyberBmp = applyCyberpunkFilter(scaled, strength)
                 canvas.drawBitmap(cyberBmp, 0f, 0f, null)
             }
-
-            // 3. Anime / Cel-Shading Posterization
             lower.contains("anime") || lower.contains("manga") || lower.contains("comic") || lower.contains("cartoon") -> {
                 val animeBmp = applyAnimeCelShadingFilter(scaled, strength)
                 canvas.drawBitmap(animeBmp, 0f, 0f, null)
             }
-
-            // 4. Oil Painting & Impressionist
             lower.contains("oil painting") || lower.contains("watercolor") || lower.contains("painted") -> {
                 val oilBmp = applyOilPaintingFilter(scaled, strength)
                 canvas.drawBitmap(oilBmp, 0f, 0f, null)
             }
-
-            // 5. General Photo Enhancement & AI Style Transfer
             else -> {
                 val enhancedBmp = applyGeneralStyleTransfer(scaled, prompt, strength, targetW, targetH)
                 canvas.drawBitmap(enhancedBmp, 0f, 0f, null)
@@ -255,7 +242,6 @@ class ImageStudioEngine(private val context: Context) {
             gray[i] = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
         }
 
-        // Edge detection gradient
         for (y in 1 until height - 1) {
             for (x in 1 until width - 1) {
                 val idx = y * width + x
@@ -284,7 +270,6 @@ class ImageStudioEngine(private val context: Context) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { colorFilter = ColorMatrixColorFilter(cm) }
         canvas.drawBitmap(src, 0f, 0f, paint)
 
-        // Neon overlay gradient
         val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(0f, 0f, src.width.toFloat(), src.height.toFloat(), Color.rgb(99, 102, 241), Color.rgb(236, 72, 153), Shader.TileMode.CLAMP)
             xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
@@ -307,7 +292,6 @@ class ImageStudioEngine(private val context: Context) {
             var g = (p shr 8) and 0xFF
             var b = p and 0xFF
 
-            // Quantize colors into 4 distinct cel bands
             r = (r / 64) * 64 + 32
             g = (g / 64) * 64 + 32
             b = (b / 64) * 64 + 32
@@ -332,7 +316,7 @@ class ImageStudioEngine(private val context: Context) {
 
         val brushPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(0f, 0f, src.width.toFloat(), src.height.toFloat(), Color.rgb(245, 158, 11), Color.rgb(139, 92, 246), Shader.TileMode.CLAMP)
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.SOFT_LIGHT)
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
             alpha = (strength * 160).toInt().coerceIn(30, 210)
         }
         canvas.drawRect(0f, 0f, src.width.toFloat(), src.height.toFloat(), brushPaint)
@@ -367,7 +351,6 @@ class ImageStudioEngine(private val context: Context) {
         val canvas = Canvas(result)
         val random = Random(prompt.hashCode())
 
-        // Ambient dark background
         val col1 = Color.rgb(random.nextInt(15, 60), random.nextInt(20, 70), random.nextInt(40, 110))
         val col2 = Color.rgb(random.nextInt(5, 25), random.nextInt(10, 30), random.nextInt(15, 40))
         val bgPaint = Paint().apply {
@@ -375,7 +358,6 @@ class ImageStudioEngine(private val context: Context) {
         }
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
-        // Intricate harmonic aura rings
         val cx = width / 2f
         val cy = height / 2f
         val numRings = 7
@@ -394,7 +376,6 @@ class ImageStudioEngine(private val context: Context) {
             canvas.drawCircle(cx, cy, (i * (min(width, height) / 16f)), ringPaint)
         }
 
-        // Luminous core spark
         val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             alpha = 230
@@ -404,14 +385,10 @@ class ImageStudioEngine(private val context: Context) {
         return result
     }
 
-    /**
-     * Saves image to DCIM/KallistoAI and registers it with the Android MediaScanner.
-     */
     private fun saveToDcimAndGallery(bitmap: Bitmap, prefix: String): File? {
         val fileName = "Kallisto_${prefix}_${System.currentTimeMillis()}.png"
 
         try {
-            // Android 10+ (Q/R/S/T/U/V / API 29-35) MediaStore Scoped Storage
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -441,7 +418,6 @@ class ImageStudioEngine(private val context: Context) {
                 MediaScannerConnection.scanFile(context, arrayOf(targetFile.absolutePath), arrayOf("image/png"), null)
             }
 
-            // Also keep in internal app storage for chat session persistence
             val internalDir = File(context.filesDir, "generated_images").apply { if (!exists()) mkdirs() }
             val internalFile = File(internalDir, fileName)
             FileOutputStream(internalFile).use { out ->
