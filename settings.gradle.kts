@@ -21,5 +21,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AetherisSpark"
+rootProject.name = "KallistoCore"
 include(":app")
