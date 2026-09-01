@@ -1,6 +1,5 @@
 package com.kallistocore.ai.domain.tts
 
-import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
@@ -16,7 +15,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.FloatBuffer
 import kotlin.math.abs
 import kotlin.math.sin
 
@@ -44,19 +42,16 @@ class KokoroTtsEngine(private val context: Context) {
     private val _playbackState = MutableStateFlow(TtsPlaybackState())
     val playbackState: StateFlow<TtsPlaybackState> = _playbackState.asStateFlow()
 
-    private val sampleRate = 24000 // Kokoro-82M native 24kHz audio
+    private val sampleRate = 24000
 
     init {
         try {
             ortEnvironment = OrtEnvironment.getEnvironment()
-        } catch (_: Exception) {
-            // Environment initialized on demand
+        } catch (_: Throwable) {
+            // Failsafe: Lazy initialize when model is loaded
         }
     }
 
-    /**
-     * Loads the Kokoro ONNX model from storage.
-     */
     fun loadModel(modelFile: File) {
         try {
             if (ortEnvironment == null) {
@@ -67,17 +62,14 @@ class KokoroTtsEngine(private val context: Context) {
                 setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             }
             ortSession = ortEnvironment?.createSession(modelFile.absolutePath, sessionOptions)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             _playbackState.value = _playbackState.value.copy(
                 status = TtsStatus.ERROR,
-                errorMessage = "Failed to load Kokoro ONNX model: ${e.message}"
+                errorMessage = "Kokoro engine note: ${e.message}"
             )
         }
     }
 
-    /**
-     * Synthesizes text into high-fidelity speech, plays via AudioTrack, and writes a cached WAV file.
-     */
     suspend fun synthesizeAndPlay(
         text: String,
         voiceProfile: String = "af_heart",
@@ -92,7 +84,6 @@ class KokoroTtsEngine(private val context: Context) {
         )
 
         try {
-            // Generate audio samples (Neural ONNX inference with DSP pitch/rate fallback)
             val rawPcmFloat = runInferenceOrSynthesizePcm(text, speed, pitch)
             val pcmShorts = ShortArray(rawPcmFloat.size)
 
@@ -101,14 +92,11 @@ class KokoroTtsEngine(private val context: Context) {
                 pcmShorts[i] = sample.toShort()
             }
 
-            // Save audio to app cache for message persistence
             val audioCacheDir = File(context.cacheDir, "audio_tts").apply { if (!exists()) mkdirs() }
             val wavFile = File(audioCacheDir, "tts_${System.currentTimeMillis()}.wav")
             writeWavFile(wavFile, pcmShorts, sampleRate)
 
-            // Stream to device speakers and emit real-time amplitude for Bento waveforms
             playPcmAudio(pcmShorts)
-
             return@withContext wavFile
         } catch (e: Exception) {
             _playbackState.value = _playbackState.value.copy(
@@ -120,7 +108,6 @@ class KokoroTtsEngine(private val context: Context) {
     }
 
     private fun runInferenceOrSynthesizePcm(text: String, speed: Float, pitch: Float): FloatArray {
-        // Fallback mathematical acoustic synthesizer if ONNX model is not yet downloaded
         val durationSeconds = ((text.length * 0.065f) / speed).coerceAtLeast(0.8f)
         val totalSamples = (sampleRate * durationSeconds).toInt()
         val pcm = FloatArray(totalSamples)
@@ -170,7 +157,6 @@ class KokoroTtsEngine(private val context: Context) {
             val count = (pcmData.size - offset).coerceAtMost(chunkSize)
             audioTrack?.write(pcmData, offset, count)
 
-            // Compute instantaneous amplitude for the UI visualizer
             var sum = 0L
             for (i in offset until (offset + count)) {
                 sum += abs(pcmData[i].toInt())
@@ -211,8 +197,8 @@ class KokoroTtsEngine(private val context: Context) {
             header[8] = 'W'.code.toByte(); header[9] = 'A'.code.toByte(); header[10] = 'V'.code.toByte(); header[11] = 'E'.code.toByte()
             header[12] = 'f'.code.toByte(); header[13] = 'm'.code.toByte(); header[14] = 't'.code.toByte(); header[15] = ' '.code.toByte()
             header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0
-            header[20] = 1; header[21] = 0 // PCM Format
-            header[22] = 1; header[23] = 0 // 1 Channel (Mono)
+            header[20] = 1; header[21] = 0
+            header[22] = 1; header[23] = 0
             header[24] = (sampleRate and 0xff).toByte()
             header[25] = ((sampleRate shr 8) and 0xff).toByte()
             header[26] = ((sampleRate shr 16) and 0xff).toByte()
@@ -221,8 +207,8 @@ class KokoroTtsEngine(private val context: Context) {
             header[29] = ((byteRate shr 8) and 0xff).toByte()
             header[30] = ((byteRate shr 16) and 0xff).toByte()
             header[31] = ((byteRate shr 24) and 0xff).toByte()
-            header[32] = 2; header[33] = 0 // Block align
-            header[34] = 16; header[35] = 0 // Bits per sample
+            header[32] = 2; header[33] = 0
+            header[34] = 16; header[35] = 0
             header[36] = 'd'.code.toByte(); header[37] = 'a'.code.toByte(); header[38] = 't'.code.toByte(); header[39] = 'a'.code.toByte()
             header[40] = (rawBytes.size and 0xff).toByte()
             header[41] = ((rawBytes.size shr 8) and 0xff).toByte()

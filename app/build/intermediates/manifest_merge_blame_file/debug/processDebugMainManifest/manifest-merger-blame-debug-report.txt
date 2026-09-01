@@ -1,0 +1,325 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.kallistocore.ai.debug"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="35" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:5:5-67
+11-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:5:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:6:5-79
+12-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+13-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:7:5-71
+13-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:7:22-68
+14    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+14-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:8:5-77
+14-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:8:22-74
+15    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+15-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:9:5-92
+15-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:9:22-89
+16    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+16-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:10:5-77
+16-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:10:22-74
+17    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+17-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:11:5-78
+17-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:11:22-75
+18    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+18-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:12:5-76
+18-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:12:22-73
+19    <uses-permission
+19-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:13:5-15:38
+20        android:name="android.permission.READ_EXTERNAL_STORAGE"
+20-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:14:9-64
+21        android:maxSdkVersion="32" />
+21-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:15:9-35
+22    <uses-permission
+22-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:16:5-19:40
+23        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+23-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:17:9-65
+24        android:maxSdkVersion="28" />
+24-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:18:9-35
+25
+26    <permission
+26-->[androidx.core:core:1.13.1] /home/qp/.gradle/caches/8.9/transforms/8a29fed3199f6d59e977210f4926139e/transformed/core-1.13.1/AndroidManifest.xml:22:5-24:47
+27        android:name="com.kallistocore.ai.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+27-->[androidx.core:core:1.13.1] /home/qp/.gradle/caches/8.9/transforms/8a29fed3199f6d59e977210f4926139e/transformed/core-1.13.1/AndroidManifest.xml:23:9-81
+28        android:protectionLevel="signature" />
+28-->[androidx.core:core:1.13.1] /home/qp/.gradle/caches/8.9/transforms/8a29fed3199f6d59e977210f4926139e/transformed/core-1.13.1/AndroidManifest.xml:24:9-44
+29
+30    <uses-permission android:name="com.kallistocore.ai.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+30-->[androidx.core:core:1.13.1] /home/qp/.gradle/caches/8.9/transforms/8a29fed3199f6d59e977210f4926139e/transformed/core-1.13.1/AndroidManifest.xml:26:5-97
+30-->[androidx.core:core:1.13.1] /home/qp/.gradle/caches/8.9/transforms/8a29fed3199f6d59e977210f4926139e/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
+31
+32    <application
+32-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:21:5-121:19
+33        android:name="com.kallistocore.ai.KallistoApplication"
+33-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:22:9-44
+34        android:allowBackup="false"
+34-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:23:9-36
+35        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+35-->[androidx.core:core:1.13.1] /home/qp/.gradle/caches/8.9/transforms/8a29fed3199f6d59e977210f4926139e/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
+36        android:debuggable="true"
+37        android:extractNativeLibs="false"
+38        android:icon="@mipmap/ic_launcher_free"
+38-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:24:9-48
+39        android:label="@string/app_name"
+39-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:25:9-41
+40        android:roundIcon="@mipmap/ic_launcher_free"
+40-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:26:9-53
+41        android:supportsRtl="true"
+41-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:27:9-35
+42        android:theme="@android:style/Theme.Material.NoActionBar"
+42-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:28:9-66
+43        android:usesCleartextTraffic="false" >
+43-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:29:9-45
+44
+45        <!-- Root Activity (Entry point without direct launcher filter) -->
+46        <activity
+46-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:33:9-38:58
+47            android:name="com.kallistocore.ai.MainActivity"
+47-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:34:13-41
+48            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+48-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:36:13-98
+49            android:exported="true"
+49-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:35:13-36
+50            android:supportsPictureInPicture="true"
+50-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:37:13-52
+51            android:windowSoftInputMode="adjustResize" /> <!-- 5. PRO EMERALD ICON ALIAS -->
+51-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:38:13-55
+52        <activity-alias
+52-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:101:9-113:26
+53            android:name="com.kallistocore.ai.MainActivityAliasProEmerald"
+53-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:102:13-56
+54            android:enabled="false"
+54-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:103:13-36
+55            android:exported="true"
+55-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:104:13-36
+56            android:icon="@mipmap/ic_launcher_pro_emerald"
+56-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:105:13-59
+57            android:label="Kallisto Pro"
+57-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:107:13-41
+58            android:roundIcon="@mipmap/ic_launcher_pro_emerald"
+58-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:106:13-64
+59            android:targetActivity="com.kallistocore.ai.MainActivity" >
+59-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:108:13-51
+60            <intent-filter>
+60-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:49:13-52:29
+61                <action android:name="android.intent.action.MAIN" />
+61-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:17-69
+61-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:25-66
+62
+63                <category android:name="android.intent.category.LAUNCHER" />
+63-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:17-77
+63-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:27-74
+64            </intent-filter>
+65        </activity-alias> <!-- 4. PRO AMETHYST ICON ALIAS -->
+66        <activity-alias
+66-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:86:9-98:26
+67            android:name="com.kallistocore.ai.MainActivityAliasProAmethyst"
+67-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:87:13-57
+68            android:enabled="false"
+68-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:88:13-36
+69            android:exported="true"
+69-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:89:13-36
+70            android:icon="@mipmap/ic_launcher_pro_amethyst"
+70-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:90:13-60
+71            android:label="Kallisto Pro"
+71-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:92:13-41
+72            android:roundIcon="@mipmap/ic_launcher_pro_amethyst"
+72-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:91:13-65
+73            android:targetActivity="com.kallistocore.ai.MainActivity" >
+73-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:93:13-51
+74            <intent-filter>
+74-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:49:13-52:29
+75                <action android:name="android.intent.action.MAIN" />
+75-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:17-69
+75-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:25-66
+76
+77                <category android:name="android.intent.category.LAUNCHER" />
+77-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:17-77
+77-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:27-74
+78            </intent-filter>
+79        </activity-alias> <!-- 3. PRO GOLD ICON ALIAS -->
+80        <activity-alias
+80-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:71:9-83:26
+81            android:name="com.kallistocore.ai.MainActivityAliasProGold"
+81-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:72:13-53
+82            android:enabled="false"
+82-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:73:13-36
+83            android:exported="true"
+83-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:74:13-36
+84            android:icon="@mipmap/ic_launcher_pro_gold"
+84-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:75:13-56
+85            android:label="Kallisto Pro"
+85-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:77:13-41
+86            android:roundIcon="@mipmap/ic_launcher_pro_gold"
+86-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:76:13-61
+87            android:targetActivity="com.kallistocore.ai.MainActivity" >
+87-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:78:13-51
+88            <intent-filter>
+88-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:49:13-52:29
+89                <action android:name="android.intent.action.MAIN" />
+89-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:17-69
+89-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:25-66
+90
+91                <category android:name="android.intent.category.LAUNCHER" />
+91-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:17-77
+91-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:27-74
+92            </intent-filter>
+93        </activity-alias> <!-- 2. PRO PLATINUM ICON ALIAS (Default Pro) -->
+94        <activity-alias
+94-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:56:9-68:26
+95            android:name="com.kallistocore.ai.MainActivityAliasProPlatinum"
+95-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:57:13-57
+96            android:enabled="false"
+96-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:58:13-36
+97            android:exported="true"
+97-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:59:13-36
+98            android:icon="@mipmap/ic_launcher_pro_platinum"
+98-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:60:13-60
+99            android:label="Kallisto Pro"
+99-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:62:13-41
+100            android:roundIcon="@mipmap/ic_launcher_pro_platinum"
+100-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:61:13-65
+101            android:targetActivity="com.kallistocore.ai.MainActivity" >
+101-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:63:13-51
+102            <intent-filter>
+102-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:49:13-52:29
+103                <action android:name="android.intent.action.MAIN" />
+103-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:17-69
+103-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:25-66
+104
+105                <category android:name="android.intent.category.LAUNCHER" />
+105-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:17-77
+105-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:27-74
+106            </intent-filter>
+107        </activity-alias> <!-- 1. FREE TIER ICON ALIAS (Default Enabled) -->
+108        <activity-alias
+108-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:41:9-53:26
+109            android:name="com.kallistocore.ai.MainActivityAliasFree"
+109-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:42:13-50
+110            android:enabled="true"
+110-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:43:13-35
+111            android:exported="true"
+111-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:44:13-36
+112            android:icon="@mipmap/ic_launcher_free"
+112-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:45:13-52
+113            android:label="@string/app_name"
+113-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:47:13-45
+114            android:roundIcon="@mipmap/ic_launcher_free"
+114-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:46:13-57
+115            android:targetActivity="com.kallistocore.ai.MainActivity" >
+115-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:48:13-51
+116            <intent-filter>
+116-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:49:13-52:29
+117                <action android:name="android.intent.action.MAIN" />
+117-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:17-69
+117-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:50:25-66
+118
+119                <category android:name="android.intent.category.LAUNCHER" />
+119-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:17-77
+119-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:51:27-74
+120            </intent-filter>
+121        </activity-alias>
+122
+123        <service
+123-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:115:9-119:61
+124            android:name="com.kallistocore.ai.service.FloatingOverlayService"
+124-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:116:13-59
+125            android:enabled="true"
+125-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:117:13-35
+126            android:exported="false"
+126-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:118:13-37
+127            android:foregroundServiceType="mediaPlayback" />
+127-->/home/qp/Documents/working projects/Open Chat ui/app/src/main/AndroidManifest.xml:119:13-58
+128
+129        <provider
+129-->[androidx.emoji2:emoji2:1.3.0] /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+130            android:name="androidx.startup.InitializationProvider"
+130-->[androidx.emoji2:emoji2:1.3.0] /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+131            android:authorities="com.kallistocore.ai.debug.androidx-startup"
+131-->[androidx.emoji2:emoji2:1.3.0] /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+132            android:exported="false" >
+132-->[androidx.emoji2:emoji2:1.3.0] /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+133            <meta-data
+133-->[androidx.emoji2:emoji2:1.3.0] /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+134                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+134-->[androidx.emoji2:emoji2:1.3.0] /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+135                android:value="androidx.startup" />
+135-->[androidx.emoji2:emoji2:1.3.0] /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+136            <meta-data
+136-->[androidx.lifecycle:lifecycle-process:2.8.5] /home/qp/.gradle/caches/8.9/transforms/2047ac422df456434e0ccae6a8cea655/transformed/lifecycle-process-2.8.5/AndroidManifest.xml:29:13-31:52
+137                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+137-->[androidx.lifecycle:lifecycle-process:2.8.5] /home/qp/.gradle/caches/8.9/transforms/2047ac422df456434e0ccae6a8cea655/transformed/lifecycle-process-2.8.5/AndroidManifest.xml:30:17-78
+138                android:value="androidx.startup" />
+138-->[androidx.lifecycle:lifecycle-process:2.8.5] /home/qp/.gradle/caches/8.9/transforms/2047ac422df456434e0ccae6a8cea655/transformed/lifecycle-process-2.8.5/AndroidManifest.xml:31:17-49
+139            <meta-data
+139-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+140                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+140-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+141                android:value="androidx.startup" />
+141-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+142        </provider>
+143
+144        <activity
+144-->[androidx.compose.ui:ui-tooling-android:1.7.0] /home/qp/.gradle/caches/8.9/transforms/889240b565214625f2a0e8d0f66523cf/transformed/ui-tooling-release/AndroidManifest.xml:23:9-25:39
+145            android:name="androidx.compose.ui.tooling.PreviewActivity"
+145-->[androidx.compose.ui:ui-tooling-android:1.7.0] /home/qp/.gradle/caches/8.9/transforms/889240b565214625f2a0e8d0f66523cf/transformed/ui-tooling-release/AndroidManifest.xml:24:13-71
+146            android:exported="true" />
+146-->[androidx.compose.ui:ui-tooling-android:1.7.0] /home/qp/.gradle/caches/8.9/transforms/889240b565214625f2a0e8d0f66523cf/transformed/ui-tooling-release/AndroidManifest.xml:25:13-36
+147
+148        <service
+148-->[androidx.room:room-runtime:2.6.1] /home/qp/.gradle/caches/8.9/transforms/c4f36a7a4d5c229c5e0a7194803f6765/transformed/room-runtime-2.6.1/AndroidManifest.xml:24:9-28:63
+149            android:name="androidx.room.MultiInstanceInvalidationService"
+149-->[androidx.room:room-runtime:2.6.1] /home/qp/.gradle/caches/8.9/transforms/c4f36a7a4d5c229c5e0a7194803f6765/transformed/room-runtime-2.6.1/AndroidManifest.xml:25:13-74
+150            android:directBootAware="true"
+150-->[androidx.room:room-runtime:2.6.1] /home/qp/.gradle/caches/8.9/transforms/c4f36a7a4d5c229c5e0a7194803f6765/transformed/room-runtime-2.6.1/AndroidManifest.xml:26:13-43
+151            android:exported="false" />
+151-->[androidx.room:room-runtime:2.6.1] /home/qp/.gradle/caches/8.9/transforms/c4f36a7a4d5c229c5e0a7194803f6765/transformed/room-runtime-2.6.1/AndroidManifest.xml:27:13-37
+152
+153        <receiver
+153-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+154            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+154-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+155            android:directBootAware="false"
+155-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+156            android:enabled="true"
+156-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+157            android:exported="true"
+157-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+158            android:permission="android.permission.DUMP" >
+158-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+159            <intent-filter>
+159-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+160                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+160-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+160-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+161            </intent-filter>
+162            <intent-filter>
+162-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+163                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+163-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+163-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+164            </intent-filter>
+165            <intent-filter>
+165-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+166                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+166-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+166-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+167            </intent-filter>
+168            <intent-filter>
+168-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+169                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+169-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+169-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+170            </intent-filter>
+171        </receiver>
+172    </application>
+173
+174</manifest>

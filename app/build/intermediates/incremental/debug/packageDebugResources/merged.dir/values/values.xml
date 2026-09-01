@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_accent">#6366F1</color>
+    <color name="ic_launcher_bg">#090A0F</color>
+    <color name="ic_launcher_cyan">#38BDF8</color>
+    <string name="app_name">Kallisto Core</string>
+</resources>

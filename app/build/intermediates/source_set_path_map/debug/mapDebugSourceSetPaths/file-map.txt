@@ -1,0 +1,61 @@
+com.kallistocore.ai.app-lifecycle-viewmodel-ktx-2.8.5-0 /home/qp/.gradle/caches/8.9/transforms/00afa628deaca11a610acdf4e2b2e44f/transformed/lifecycle-viewmodel-ktx-2.8.5/res
+com.kallistocore.ai.app-ui-unit-release-1 /home/qp/.gradle/caches/8.9/transforms/04c5fe679b08af7321178e6936e2ecc9/transformed/ui-unit-release/res
+com.kallistocore.ai.app-activity-ktx-1.9.2-2 /home/qp/.gradle/caches/8.9/transforms/05e34e85cd5d62c24cc226f7269c0148/transformed/activity-ktx-1.9.2/res
+com.kallistocore.ai.app-lifecycle-runtime-release-3 /home/qp/.gradle/caches/8.9/transforms/082cde7c1eec8fa550221b5ccbb6a8fd/transformed/lifecycle-runtime-release/res
+com.kallistocore.ai.app-activity-compose-1.9.2-4 /home/qp/.gradle/caches/8.9/transforms/09e3c2d489cee9963c4d326cd54bac5f/transformed/activity-compose-1.9.2/res
+com.kallistocore.ai.app-annotation-experimental-1.4.1-5 /home/qp/.gradle/caches/8.9/transforms/0bb2eb76531795d2407ffff7f5791606/transformed/annotation-experimental-1.4.1/res
+com.kallistocore.ai.app-ui-graphics-release-6 /home/qp/.gradle/caches/8.9/transforms/0e15ad0c3b32f73306abed9e4654acda/transformed/ui-graphics-release/res
+com.kallistocore.ai.app-foundation-layout-release-7 /home/qp/.gradle/caches/8.9/transforms/10eff3e2f1a7fdd1c4be1d64c8881518/transformed/foundation-layout-release/res
+com.kallistocore.ai.app-lifecycle-runtime-ktx-release-8 /home/qp/.gradle/caches/8.9/transforms/112d55eb2c7ea1c9c50a638b90a2275d/transformed/lifecycle-runtime-ktx-release/res
+com.kallistocore.ai.app-navigation-compose-2.8.0-9 /home/qp/.gradle/caches/8.9/transforms/158ba303a67f1eda2c7c1b3c1db36304/transformed/navigation-compose-2.8.0/res
+com.kallistocore.ai.app-runtime-release-10 /home/qp/.gradle/caches/8.9/transforms/1a668799ab2ae2915cc39a288d291af3/transformed/runtime-release/res
+com.kallistocore.ai.app-graphics-path-1.0.1-11 /home/qp/.gradle/caches/8.9/transforms/1b4d094d5a5481ccae2db2e14f09b8ae/transformed/graphics-path-1.0.1/res
+com.kallistocore.ai.app-ui-tooling-preview-release-12 /home/qp/.gradle/caches/8.9/transforms/1cb1d2ae12ecf699be6753cd6e59e5de/transformed/ui-tooling-preview-release/res
+com.kallistocore.ai.app-lifecycle-process-2.8.5-13 /home/qp/.gradle/caches/8.9/transforms/2047ac422df456434e0ccae6a8cea655/transformed/lifecycle-process-2.8.5/res
+com.kallistocore.ai.app-animation-release-14 /home/qp/.gradle/caches/8.9/transforms/253f15e3afd5877e0b4f4b166303c850/transformed/animation-release/res
+com.kallistocore.ai.app-navigation-runtime-2.8.0-15 /home/qp/.gradle/caches/8.9/transforms/2ae04d05bf2df63a0c32ee8e5e472c0b/transformed/navigation-runtime-2.8.0/res
+com.kallistocore.ai.app-sqlite-2.4.0-16 /home/qp/.gradle/caches/8.9/transforms/2f00c677e5156d7150df9979a85c1f8c/transformed/sqlite-2.4.0/res
+com.kallistocore.ai.app-material-ripple-release-17 /home/qp/.gradle/caches/8.9/transforms/34a078641d0f16c8c92d4feb453fb61a/transformed/material-ripple-release/res
+com.kallistocore.ai.app-startup-runtime-1.1.1-18 /home/qp/.gradle/caches/8.9/transforms/367db99829e610f7776497612da5320f/transformed/startup-runtime-1.1.1/res
+com.kallistocore.ai.app-savedstate-ktx-1.2.1-19 /home/qp/.gradle/caches/8.9/transforms/3c59cc95fab783be4721ad949bd92fb2/transformed/savedstate-ktx-1.2.1/res
+com.kallistocore.ai.app-material-icons-extended-release-20 /home/qp/.gradle/caches/8.9/transforms/40323880da55e6f6a07ce0a1f4e198da/transformed/material-icons-extended-release/res
+com.kallistocore.ai.app-material-release-21 /home/qp/.gradle/caches/8.9/transforms/4d2f213d9d2be3b0ac78f862050b1614/transformed/material-release/res
+com.kallistocore.ai.app-core-runtime-2.2.0-22 /home/qp/.gradle/caches/8.9/transforms/573566a95c1eec5b4cbc55d5adc50fdc/transformed/core-runtime-2.2.0/res
+com.kallistocore.ai.app-navigation-runtime-ktx-2.8.0-23 /home/qp/.gradle/caches/8.9/transforms/5b19cb178c019fe418cf61fcdb1f680d/transformed/navigation-runtime-ktx-2.8.0/res
+com.kallistocore.ai.app-material3-release-24 /home/qp/.gradle/caches/8.9/transforms/6416e258f86aa7052bcc8b7b4715c2c0/transformed/material3-release/res
+com.kallistocore.ai.app-savedstate-1.2.1-25 /home/qp/.gradle/caches/8.9/transforms/67ca88215cea88f9a99160b7ef727e3b/transformed/savedstate-1.2.1/res
+com.kallistocore.ai.app-lifecycle-livedata-core-2.8.5-26 /home/qp/.gradle/caches/8.9/transforms/68e45ba72ad92aad13a6416747ce7d65/transformed/lifecycle-livedata-core-2.8.5/res
+com.kallistocore.ai.app-lifecycle-viewmodel-release-27 /home/qp/.gradle/caches/8.9/transforms/6c82ea209d9cae93b60c8f8b508c28bf/transformed/lifecycle-viewmodel-release/res
+com.kallistocore.ai.app-lifecycle-viewmodel-compose-release-28 /home/qp/.gradle/caches/8.9/transforms/6d48f0a9e2334318e1d53ca745ed4a11/transformed/lifecycle-viewmodel-compose-release/res
+com.kallistocore.ai.app-ui-text-release-29 /home/qp/.gradle/caches/8.9/transforms/77b539c6977acd3ed0c444c61d939ed0/transformed/ui-text-release/res
+com.kallistocore.ai.app-room-ktx-2.6.1-30 /home/qp/.gradle/caches/8.9/transforms/77d6137d8e436daa1f6572bbfe2e9e7e/transformed/room-ktx-2.6.1/res
+com.kallistocore.ai.app-core-ktx-1.13.1-31 /home/qp/.gradle/caches/8.9/transforms/77e60063079f982a749b6bbd75253674/transformed/core-ktx-1.13.1/res
+com.kallistocore.ai.app-lifecycle-runtime-compose-release-32 /home/qp/.gradle/caches/8.9/transforms/7a5629658a7a8d8db0c50d74896aec6b/transformed/lifecycle-runtime-compose-release/res
+com.kallistocore.ai.app-lifecycle-viewmodel-savedstate-2.8.5-33 /home/qp/.gradle/caches/8.9/transforms/80f2e1d80ff6abd4d3739de4799699b7/transformed/lifecycle-viewmodel-savedstate-2.8.5/res
+com.kallistocore.ai.app-ui-tooling-release-34 /home/qp/.gradle/caches/8.9/transforms/889240b565214625f2a0e8d0f66523cf/transformed/ui-tooling-release/res
+com.kallistocore.ai.app-core-1.13.1-35 /home/qp/.gradle/caches/8.9/transforms/8a29fed3199f6d59e977210f4926139e/transformed/core-1.13.1/res
+com.kallistocore.ai.app-ui-release-36 /home/qp/.gradle/caches/8.9/transforms/937ca2010058926c4e7198c82f061749/transformed/ui-release/res
+com.kallistocore.ai.app-customview-poolingcontainer-1.0.0-37 /home/qp/.gradle/caches/8.9/transforms/a508a0137d566935a5c9a175b791f86d/transformed/customview-poolingcontainer-1.0.0/res
+com.kallistocore.ai.app-coil-base-2.7.0-38 /home/qp/.gradle/caches/8.9/transforms/a859b3c5cab76d9bc43f6116de185036/transformed/coil-base-2.7.0/res
+com.kallistocore.ai.app-animation-core-release-39 /home/qp/.gradle/caches/8.9/transforms/ac8b3b279dab02538213b4b5b29a79fc/transformed/animation-core-release/res
+com.kallistocore.ai.app-sqlite-framework-2.4.0-40 /home/qp/.gradle/caches/8.9/transforms/b5b88ae35acdbfa5850cdd39c62f2c50/transformed/sqlite-framework-2.4.0/res
+com.kallistocore.ai.app-runtime-saveable-release-41 /home/qp/.gradle/caches/8.9/transforms/bb326acafec005d71a98e2070b2544df/transformed/runtime-saveable-release/res
+com.kallistocore.ai.app-profileinstaller-1.3.1-42 /home/qp/.gradle/caches/8.9/transforms/bf1e399dc3bf1523aeb215e0f0ff0bea/transformed/profileinstaller-1.3.1/res
+com.kallistocore.ai.app-ui-geometry-release-43 /home/qp/.gradle/caches/8.9/transforms/c4ba30f26b6074ca3ca3cd28da18f89d/transformed/ui-geometry-release/res
+com.kallistocore.ai.app-room-runtime-2.6.1-44 /home/qp/.gradle/caches/8.9/transforms/c4f36a7a4d5c229c5e0a7194803f6765/transformed/room-runtime-2.6.1/res
+com.kallistocore.ai.app-activity-1.9.2-45 /home/qp/.gradle/caches/8.9/transforms/c5d6ab43a520ca0465f22f0b077c0925/transformed/activity-1.9.2/res
+com.kallistocore.ai.app-navigation-common-2.8.0-46 /home/qp/.gradle/caches/8.9/transforms/c6806ba57243afeaac3f1b0082d4682c/transformed/navigation-common-2.8.0/res
+com.kallistocore.ai.app-emoji2-1.3.0-47 /home/qp/.gradle/caches/8.9/transforms/cb2190e7b985b4a72d47cb14dcf2c761/transformed/emoji2-1.3.0/res
+com.kallistocore.ai.app-foundation-release-48 /home/qp/.gradle/caches/8.9/transforms/d110bfd46781d484b1b052573f6a3fb3/transformed/foundation-release/res
+com.kallistocore.ai.app-appcompat-resources-1.6.1-49 /home/qp/.gradle/caches/8.9/transforms/d72eaae2b1d052a79140bf127f1611d7/transformed/appcompat-resources-1.6.1/res
+com.kallistocore.ai.app-material-icons-core-release-50 /home/qp/.gradle/caches/8.9/transforms/e1d2645a0222d455493252283e748754/transformed/material-icons-core-release/res
+com.kallistocore.ai.app-ui-util-release-51 /home/qp/.gradle/caches/8.9/transforms/f6af6f16271b2f433d24086f5328da05/transformed/ui-util-release/res
+com.kallistocore.ai.app-ui-tooling-data-release-52 /home/qp/.gradle/caches/8.9/transforms/fbf74f47407da849bbb15423c5bc632c/transformed/ui-tooling-data-release/res
+com.kallistocore.ai.app-navigation-common-ktx-2.8.0-53 /home/qp/.gradle/caches/8.9/transforms/ff115c69cec0ab9f24fa313d8ee4147a/transformed/navigation-common-ktx-2.8.0/res
+com.kallistocore.ai.app-pngs-54 /home/qp/Documents/working projects/Open Chat ui/app/build/generated/res/pngs/debug
+com.kallistocore.ai.app-resValues-55 /home/qp/Documents/working projects/Open Chat ui/app/build/generated/res/resValues/debug
+com.kallistocore.ai.app-packageDebugResources-56 /home/qp/Documents/working projects/Open Chat ui/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.kallistocore.ai.app-packageDebugResources-57 /home/qp/Documents/working projects/Open Chat ui/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.kallistocore.ai.app-debug-58 /home/qp/Documents/working projects/Open Chat ui/app/build/intermediates/merged_res/debug/mergeDebugResources
+com.kallistocore.ai.app-debug-59 /home/qp/Documents/working projects/Open Chat ui/app/src/debug/res
+com.kallistocore.ai.app-main-60 /home/qp/Documents/working projects/Open Chat ui/app/src/main/res

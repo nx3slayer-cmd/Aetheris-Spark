@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -32,16 +31,7 @@ abstract class KallistoDatabase : RoomDatabase() {
                     KallistoDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addCallback(object : Callback() {
-                    override fun onOpen(db: SupportSQLiteDatabase) {
-                        super.onOpen(db)
-                        // Performance PRAGMAs for low-latency on-device memory access
-                        db.execSQL("PRAGMA journal_mode=WAL;")
-                        db.execSQL("PRAGMA synchronous=NORMAL;")
-                        db.execSQL("PRAGMA temp_store=MEMORY;")
-                        db.execSQL("PRAGMA cache_size=-64000;") // 64 MB fast RAM cache
-                    }
-                })
+                .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
