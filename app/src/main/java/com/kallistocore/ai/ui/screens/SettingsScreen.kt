@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kallistocore.ai.data.manager.AppIconManager
 import com.kallistocore.ai.data.manager.AppIconStyle
+import com.kallistocore.ai.data.manager.ModelDownloadProgress
 import com.kallistocore.ai.data.models.AIModelInfo
 import com.kallistocore.ai.data.models.DownloadStatus
 import com.kallistocore.ai.data.models.ModelCatalog
@@ -97,7 +98,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 2. Launcher App Icon Selector (Free vs Pro Platinum Default)
+        // 2. Launcher App Icon Selector
         item {
             Text(
                 text = "Launcher App Icon Style",
@@ -162,7 +163,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 3. Dedicated Chat Memory Bank Configuration (1 GB Default)
+        // 3. Chat Memory Bank Allocation
         item {
             Text(
                 text = "Chat Memory Bank Allocation",
@@ -234,7 +235,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 4. Model Hub & Storage Manager Header
+        // 4. Model Hub & Storage Header
         item {
             Row(
                 modifier = Modifier
@@ -361,6 +362,156 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                     ),
                     cursorBrush = SolidColor(colors.primary)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ModelHubCard(
+    model: AIModelInfo,
+    viewModel: CompanionViewModel,
+    downloadProgress: ModelDownloadProgress?
+) {
+    val colors = LocalKallistoColors.current
+    val isDownloaded = viewModel.modelManager.isModelDownloaded(model)
+    val isDownloading = downloadProgress?.status == DownloadStatus.DOWNLOADING
+    val modelFile = viewModel.modelManager.getModelFile(model)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(colors.surface)
+            .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = model.name,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary
+                )
+                Text(
+                    text = model.description,
+                    fontSize = 11.5.sp,
+                    color = colors.textSecondary,
+                    lineHeight = 15.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.surfaceVariant)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = model.formattedSize,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.accentWave
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Format: ${model.format.name} (${model.quantization}) • RAM: ~${model.ramRequirementMB} MB",
+                fontSize = 11.sp,
+                color = colors.textSecondary
+            )
+            if (isDownloaded) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(colors.statusSuccess))
+                    Text("Downloaded", fontSize = 11.sp, color = colors.statusSuccess, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        Text(
+            text = "Path: ${modelFile.parentFile?.name}/${model.fileName}",
+            fontSize = 10.sp,
+            color = colors.textSecondary.copy(alpha = 0.7f)
+        )
+
+        if (isDownloading && downloadProgress != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Downloading chunk stream...", fontSize = 11.sp, color = colors.textSecondary)
+                    Text("${(downloadProgress.progress * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                }
+                LinearProgressIndicator(
+                    progress = { downloadProgress.progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(CircleShape),
+                    color = colors.primary,
+                    trackColor = colors.surfaceVariant,
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isDownloaded) {
+                Button(
+                    onClick = { viewModel.modelManager.autoSelectActiveModel(model) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
+                ) {
+                    Text("Select as Active", fontSize = 12.sp, color = colors.onPrimary)
+                }
+
+                Button(
+                    onClick = { viewModel.deleteModel(model) },
+                    modifier = Modifier
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.error.copy(alpha = 0.15f))
+                ) {
+                    Icon(imageVector = Icons.Rounded.Delete, contentDescription = "Delete", tint = colors.error, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Delete", fontSize = 12.sp, color = colors.error)
+                }
+            } else {
+                Button(
+                    onClick = { viewModel.downloadModel(model) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    enabled = !isDownloading,
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
+                ) {
+                    Icon(imageVector = Icons.Rounded.Download, contentDescription = "Download", tint = colors.onPrimary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (isDownloading) "Downloading..." else "Download Model (${model.formattedSize})", fontSize = 12.sp, color = colors.onPrimary)
+                }
             }
         }
     }

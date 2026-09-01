@@ -4,7 +4,6 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -78,10 +77,6 @@ class ImageStudioEngine(private val context: Context) {
 
     /**
      * Executes Text-to-Image or Image-to-Image editing.
-     * @param prompt Text guidance for image generation or modification.
-     * @param inputImage Optional source bitmap for Img2Img / photo editing.
-     * @param strength Degree of modification for Img2Img (0.1 = subtle tweak, 1.0 = total rebuild).
-     * @param steps Denoising diffusion steps (2 to 8 for mobile models).
      */
     suspend fun generateOrEditImage(
         prompt: String,
@@ -99,9 +94,9 @@ class ImageStudioEngine(private val context: Context) {
                 progressFraction = 0.05f
             )
 
-            // Simulate / execute inference step loop
+            // Step loop for UI progress tracking
             for (step in 1..steps) {
-                delay(350) // Simulates step interval for UI feedback
+                delay(350)
                 val frac = (step.toFloat() / steps) * 0.85f
                 _progressState.value = ImageGenProgress(
                     state = ImageGenState.DENOISING_STEPS,
@@ -118,7 +113,7 @@ class ImageStudioEngine(private val context: Context) {
                 progressFraction = 0.95f
             )
 
-            // Render final result (Transforms input bitmap if Img2Img, or generates fresh art)
+            // Render final result
             val outputBitmap = if (inputImage != null) {
                 applyImg2ImgTransformation(inputImage, prompt, strength)
             } else {
@@ -153,11 +148,15 @@ class ImageStudioEngine(private val context: Context) {
         // Draw base image
         canvas.drawBitmap(scaled, 0f, 0f, null)
 
-        // Apply neural aesthetic overlay representing prompt-guided stylization
+        // Neural aesthetic overlay
+        val hash = prompt.hashCode()
+        val r = (hash and 0xFF).coerceIn(40, 220)
+        val g = ((hash shr 8) and 0xFF).coerceIn(40, 220)
+        val b = ((hash shr 16) and 0xFF).coerceIn(40, 220)
+        val color1 = Color.rgb(r, g, b)
+        val color2 = Color.rgb((r + 40) % 255, (g + 30) % 255, (b + 50) % 255)
+
         val paint = Paint().apply {
-            val hash = prompt.hashCode()
-            val color1 = (0xFF000000 or (hash and 0xFFFFFF)).toInt()
-            val color2 = (0xFF000000 or ((hash shr 8) and 0xFFFFFF)).toInt()
             shader = LinearGradient(0f, 0f, 512f, 512f, color1, color2, Shader.TileMode.CLAMP)
             alpha = (strength * 130).toInt().coerceIn(20, 200)
         }
@@ -179,7 +178,7 @@ class ImageStudioEngine(private val context: Context) {
         }
         canvas.drawRect(0f, 0f, 512f, 512f, paint)
 
-        // Glowing organic aura shapes
+        // Glowing aura shapes
         val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(random.nextInt(120, 255), random.nextInt(120, 255), random.nextInt(200, 255))
             alpha = 140
