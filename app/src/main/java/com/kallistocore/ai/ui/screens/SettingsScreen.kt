@@ -1,5 +1,7 @@
 package com.kallistocore.ai.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,7 +47,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
     var memoryAllocationMB by remember { mutableFloatStateOf(1024f) }
     var contextSize by remember { mutableFloatStateOf(4096f) }
     var cpuThreads by remember { mutableFloatStateOf(6f) }
-    var systemPromptText by remember { mutableStateOf(viewModel.systemPrompt.value) }
+    var hfTokenText by remember { mutableStateOf(viewModel.modelManager.hfToken) }
 
     val freeStorage = viewModel.modelManager.formatBytes(viewModel.modelManager.getAvailableStorageBytes())
 
@@ -57,7 +59,7 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(top = 12.dp, bottom = 32.dp)
     ) {
-        // 1. Model Hub & Storage Header
+        // 1. Model Hub Header & Storage Info
         item {
             Row(
                 modifier = Modifier
@@ -66,39 +68,84 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "On-Device Model Hub",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary
-                )
-                Text(
-                    text = "Free Disk: $freeStorage",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.accentWave
-                )
+                Text(text = "On-Device Model Hub", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                Text(text = "Free Disk: $freeStorage", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.accentWave)
             }
         }
 
-        // 2. Catalog Models (Llama 3.2, Qwen 2.5, Kokoro TTS, Img2Img)
+        // 2. Hugging Face Access Token Bento (For Gated/Private Models)
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colors.surface)
+                    .border(1.dp, colors.border, RoundedCornerShape(18.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Hugging Face Access Token", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary)
+                    Text(
+                        text = "Get Token ↗",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.accentWave,
+                        modifier = Modifier.clickable {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://huggingface.co/settings/tokens"))
+                            context.startActivity(browserIntent)
+                        }
+                    )
+                }
+                Text(text = "Optional. Paste your 'hf_...' token to download gated or private models directly.", fontSize = 11.sp, color = colors.textSecondary)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.surfaceVariant)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    BasicTextField(
+                        value = hfTokenText,
+                        onValueChange = {
+                            hfTokenText = it
+                            viewModel.modelManager.hfToken = it
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(color = colors.textPrimary, fontSize = 13.sp),
+                        cursorBrush = SolidColor(colors.primary),
+                        decorationBox = { innerTextField ->
+                            if (hfTokenText.isEmpty()) {
+                                Text(text = "hf_xxxxxxxxxxxxxxxxxxxxxxx (Optional)", color = colors.textSecondary, fontSize = 12.sp)
+                            }
+                            innerTextField()
+                        }
+                    )
+                }
+            }
+        }
+
+        // 3. Catalog Models
         items(ModelCatalog.curatedModels, key = { it.id }) { model ->
             ModelHubCard(
                 model = model,
                 viewModel = viewModel,
-                downloadProgress = downloadStates[model.id]
+                downloadProgress = downloadStates[model.id],
+                onOpenHf = {
+                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(model.hfRepoUrl))
+                    context.startActivity(browserIntent)
+                }
             )
         }
 
-        // 3. Theme Selector
+        // 4. App Theme Selector
         item {
-            Text(
-                text = "Aesthetic Theme",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, top = 6.dp)
-            )
+            Text(text = "Aesthetic Theme", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -120,26 +167,15 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = name,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isSelected) colors.onPrimary else colors.textSecondary
-                        )
+                        Text(text = name, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = if (isSelected) colors.onPrimary else colors.textSecondary)
                     }
                 }
             }
         }
 
-        // 4. Launcher App Icon Selector
+        // 5. Launcher App Icon Selector
         item {
-            Text(
-                text = "Launcher App Icon Style",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-            )
+            Text(text = "Launcher App Icon Style", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -165,24 +201,10 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .clip(CircleShape)
-                                    .background(if (style.isProOnly) colors.accentWave else colors.primary)
-                            )
-                            Text(
-                                text = style.displayName,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = colors.textPrimary
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(if (style.isProOnly) colors.accentWave else colors.primary))
+                            Text(text = style.displayName, fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, color = colors.textPrimary)
                         }
-
                         if (isSelected) {
                             Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = "Selected", tint = colors.primary, modifier = Modifier.size(18.dp))
                         }
@@ -191,15 +213,9 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 5. Chat Memory Bank Allocation
+        // 6. Memory Quota
         item {
-            Text(
-                text = "Chat Memory Bank Allocation",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-            )
+            Text(text = "Chat Memory Bank Allocation", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -209,21 +225,12 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text(text = "Dedicated Memory Quota", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary)
-                        Text(text = "Persistent FTS SQLite + associative vector cache", fontSize = 11.sp, color = colors.textSecondary)
+                        Text(text = "Persistent SQLite + associative vector cache", fontSize = 11.sp, color = colors.textSecondary)
                     }
-                    Text(
-                        text = "${memoryAllocationMB.toInt()} MB (${String.format("%.1f", memoryAllocationMB / 1024.0)} GB)",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.primary
-                    )
+                    Text(text = "${memoryAllocationMB.toInt()} MB (${String.format("%.1f", memoryAllocationMB / 1024.0)} GB)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.primary)
                 }
 
                 Slider(
@@ -231,21 +238,11 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
                     onValueChange = { memoryAllocationMB = it },
                     valueRange = 512f..8192f,
                     steps = 14,
-                    colors = SliderDefaults.colors(
-                        thumbColor = colors.primary,
-                        activeTrackColor = colors.primary,
-                        inactiveTrackColor = colors.surfaceVariant
-                    )
+                    colors = SliderDefaults.colors(thumbColor = colors.primary, activeTrackColor = colors.primary, inactiveTrackColor = colors.surfaceVariant)
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = { viewModel.pruneMemoryBank() },
-                        colors = ButtonDefaults.textButtonColors(contentColor = colors.error)
-                    ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { viewModel.pruneMemoryBank() }, colors = ButtonDefaults.textButtonColors(contentColor = colors.error)) {
                         Icon(imageVector = Icons.Rounded.CleaningServices, contentDescription = "Prune", modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(text = "Prune Old Memories", fontSize = 12.sp)
@@ -254,15 +251,9 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
             }
         }
 
-        // 6. Hardware Allocations
+        // 7. Hardware Sliders
         item {
-            Text(
-                text = "Hardware & Context Allocations",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.textPrimary,
-                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-            )
+            Text(text = "Hardware & Context Allocations", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -308,11 +299,13 @@ fun SettingsScreen(viewModel: CompanionViewModel) {
 fun ModelHubCard(
     model: AIModelInfo,
     viewModel: CompanionViewModel,
-    downloadProgress: ModelDownloadProgress?
+    downloadProgress: ModelDownloadProgress?,
+    onOpenHf: () -> Unit
 ) {
     val colors = LocalKallistoColors.current
     val isDownloaded = viewModel.modelManager.isModelDownloaded(model)
     val isDownloading = downloadProgress?.status == DownloadStatus.DOWNLOADING
+    val isFailed = downloadProgress?.status == DownloadStatus.FAILED
     val modelFile = viewModel.modelManager.getModelFile(model)
 
     Column(
@@ -349,22 +342,57 @@ fun ModelHubCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Format: ${model.format.name} (${model.quantization}) • RAM: ~${model.ramRequirementMB} MB", fontSize = 11.sp, color = colors.textSecondary)
-            if (isDownloaded) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(colors.statusSuccess))
-                    Text("Downloaded", fontSize = 11.sp, color = colors.statusSuccess, fontWeight = FontWeight.SemiBold)
-                }
+            Text(text = "Format: ${model.quantization} • RAM: ~${model.ramRequirementMB} MB", fontSize = 11.sp, color = colors.textSecondary)
+            
+            Text(
+                text = "HF Repo ↗",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.accentWave,
+                modifier = Modifier.clickable { onOpenHf() }
+            )
+        }
+
+        if (isDownloaded) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(colors.statusSuccess))
+                Text("Installed on Device", fontSize = 11.sp, color = colors.statusSuccess, fontWeight = FontWeight.SemiBold)
             }
         }
 
-        Text(text = "Path: ${modelFile.parentFile?.name}/${model.fileName}", fontSize = 10.sp, color = colors.textSecondary.copy(alpha = 0.7f))
+        // Error message banner if download failed
+        if (isFailed && downloadProgress?.errorMessage != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.error.copy(alpha = 0.12f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = downloadProgress.errorMessage,
+                    fontSize = 11.sp,
+                    color = colors.error,
+                    lineHeight = 15.sp
+                )
+            }
+        }
 
+        // Real-time progress bar with byte metrics
         if (isDownloading && downloadProgress != null) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Downloading chunk stream...", fontSize = 11.sp, color = colors.textSecondary)
-                    Text("${(downloadProgress.progress * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                    Text(
+                        text = "${viewModel.modelManager.formatBytes(downloadProgress.downloadedBytes)} / ${viewModel.modelManager.formatBytes(downloadProgress.totalBytes)}",
+                        fontSize = 11.sp,
+                        color = colors.textSecondary
+                    )
+                    Text(
+                        text = "${(downloadProgress.progress * 100).toInt()}%",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.primary
+                    )
                 }
                 LinearProgressIndicator(
                     progress = { downloadProgress.progress },
@@ -375,6 +403,7 @@ fun ModelHubCard(
             }
         }
 
+        // Action Buttons: Resume / Download / Cancel / Delete
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -398,16 +427,35 @@ fun ModelHubCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Delete", fontSize = 12.sp, color = colors.error)
                 }
+            } else if (isDownloading) {
+                Button(
+                    onClick = { viewModel.modelManager.pauseOrCancelDownload(model) },
+                    modifier = Modifier.fillMaxWidth().height(38.dp).clip(RoundedCornerShape(10.dp)),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant)
+                ) {
+                    Icon(imageVector = Icons.Rounded.Pause, contentDescription = "Pause", tint = colors.textPrimary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Pause / Background Download", fontSize = 12.sp, color = colors.textPrimary)
+                }
             } else {
+                val hasPartial = downloadProgress?.isResumable == true
                 Button(
                     onClick = { viewModel.downloadModel(model) },
                     modifier = Modifier.fillMaxWidth().height(38.dp).clip(RoundedCornerShape(10.dp)),
-                    enabled = !isDownloading,
                     colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                 ) {
-                    Icon(imageVector = Icons.Rounded.Download, contentDescription = "Download", tint = colors.onPrimary, modifier = Modifier.size(16.dp))
+                    Icon(
+                        imageVector = if (hasPartial) Icons.Rounded.PlayArrow else Icons.Rounded.Download,
+                        contentDescription = "Download",
+                        tint = colors.onPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (isDownloading) "Downloading..." else "Download Model (${model.formattedSize})", fontSize = 12.sp, color = colors.onPrimary)
+                    Text(
+                        text = if (hasPartial) "Resume Download (${(downloadProgress!!.progress * 100).toInt()}%)" else "Download Model (${model.formattedSize})",
+                        fontSize = 12.sp,
+                        color = colors.onPrimary
+                    )
                 }
             }
         }
