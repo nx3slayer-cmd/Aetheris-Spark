@@ -80,12 +80,14 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Voice Engine: Enabled by default once active
     val ttsPlaybackState: StateFlow<TtsPlaybackState> = ttsEngine.playbackState
     var selectedVoiceProfile = MutableStateFlow("af_heart (Warm American)")
     var speechSpeed = MutableStateFlow(1.0f)
     var speechPitch = MutableStateFlow(1.0f)
     var isVoiceAutoSpeak = MutableStateFlow(true)
 
+    // Image Studio Tool State
     val imageProgressState: StateFlow<ImageGenProgress> = imageStudio.progressState
     var selectedSourceImage = MutableStateFlow<Bitmap?>(null)
     var selectedAspectRatio = MutableStateFlow(AspectRatioOption.SQUARE_1_1)
@@ -97,7 +99,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     var allocatedMemoryBankMB = MutableStateFlow(1024)
     var contextWindowSize = MutableStateFlow(4096)
     var cpuThreads = MutableStateFlow(6)
-    var systemPrompt = MutableStateFlow("You are Kallisto, a sovereign, local, and helpful AI companion running offline.")
+    var systemPrompt = MutableStateFlow("You are Kallisto, an autonomous offline AI companion running locally on this device.")
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -110,8 +112,27 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * Dynamic Model Swapper: Unloads unused models when switching tabs to conserve device RAM.
+     */
     fun selectTab(tab: MainTab) {
         _currentTab.value = tab
+
+        viewModelScope.launch(Dispatchers.IO) {
+            when (tab) {
+                MainTab.CHAT -> {
+                    // Chat Active: Free up image generation buffers
+                    imageStudio.clearMemoryBuffers()
+                    System.gc()
+                }
+                MainTab.IMAGE_STUDIO -> {
+                    // Studio Active: Stop active voice and clear memory caches to maximize RAM for Diffusion
+                    ttsEngine.stopAudio()
+                    System.gc()
+                }
+                else -> {}
+            }
+        }
     }
 
     fun setTheme(theme: AppThemeSetting) {
@@ -142,9 +163,11 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             )
             memoryDao.updateSessionTimestamp(sessionId)
 
+            // Direct Image Generation Trigger
             if (sourceImage != null || userText.startsWith("draw ") || userText.startsWith("generate image")) {
+                val prompt = userText.replace(Regex("^(draw|generate image of|generate image)\\s+", RegexOption.IGNORE_CASE), "").trim()
                 val generatedArt = imageStudio.generateOrEditImage(
-                    prompt = userText,
+                    prompt = prompt,
                     inputImage = sourceImage,
                     aspectRatio = selectedAspectRatio.value,
                     baseResolution = selectedBaseResolution.value,
@@ -160,7 +183,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                             id = aiMsgId,
                             sessionId = sessionId,
                             role = "assistant",
-                            content = "I processed your image request (${imageStudio.progressState.value.outputDimensions}) on-device and saved it to DCIM/KallistoAI.",
+                            content = "I created this image on-device for you.",
                             imageFilePath = generatedArt.absolutePath
                         )
                     )
@@ -168,6 +191,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
 
+            // Stream Conversational Response
             val aiMsgId = UUID.randomUUID().toString()
             var accumulatedText = ""
 
@@ -176,12 +200,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 systemPrompt = systemPrompt.value,
                 sessionId = sessionId,
                 memoryDao = memoryDao,
-                searchController = searchController,
-                onActionDetected = { action ->
-                    if (action is LlmActionRequest.LaunchApp) {
-                        searchController.launchAppByName(action.appName)
-                    }
-                }
+                searchController = searchController
             ).collect { token ->
                 accumulatedText += token
                 memoryDao.insertMessage(
@@ -194,6 +213,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
 
+            // Autonomous Kokoro Speech Output
             if (isVoiceAutoSpeak.value && accumulatedText.isNotBlank()) {
                 val audioFile = ttsEngine.synthesizeAndPlay(
                     text = accumulatedText,
@@ -217,7 +237,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun testKokoroVoice(sampleText: String = "Hello! This is a test of the Kokoro-82M neural speech engine.") {
+    fun testKokoroVoice(sampleText: String = "Hello! Kokoro voice synthesis is active.") {
         viewModelScope.launch(Dispatchers.IO) {
             ttsEngine.synthesizeAndPlay(
                 text = sampleText,

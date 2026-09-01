@@ -15,7 +15,6 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,6 +62,11 @@ class ImageStudioEngine(private val context: Context) {
     private val _progressState = MutableStateFlow(ImageGenProgress())
     val progressState: StateFlow<ImageGenProgress> = _progressState.asStateFlow()
 
+    fun clearMemoryBuffers() {
+        _progressState.value = ImageGenProgress()
+        System.gc()
+    }
+
     suspend fun generateOrEditImage(
         prompt: String,
         inputImage: Bitmap? = null,
@@ -95,7 +99,7 @@ class ImageStudioEngine(private val context: Context) {
 
             var outputBitmap: Bitmap? = null
 
-            // 1. Try ComfyUI Server on Local Network (DGX Spark / PC)
+            // 1. Try ComfyUI Server on Local Network (DGX Spark)
             val isComfyConnected = comfyClient.checkServerConnection()
             if (isComfyConnected) {
                 _progressState.value = ImageGenProgress(
@@ -133,7 +137,7 @@ class ImageStudioEngine(private val context: Context) {
             }
 
             if (outputBitmap == null) {
-                throw IllegalStateException("Diffusion synthesis failed. Check network or ComfyUI server.")
+                throw IllegalStateException("Diffusion synthesis failed. Check network connection.")
             }
 
             _progressState.value = ImageGenProgress(
@@ -187,7 +191,6 @@ class ImageStudioEngine(private val context: Context) {
                 val downloadedBmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
 
                 if (inputImage != null && downloadedBmp != null) {
-                    // Blend with input image for Img2Img style consistency
                     val blended = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     val canvas = Canvas(blended)
                     val scaledInput = Bitmap.createScaledBitmap(inputImage, width, height, true)
