@@ -9,7 +9,7 @@ import com.kallistocore.ai.data.db.KallistoDatabase
 import com.kallistocore.ai.data.db.MessageEntity
 import com.kallistocore.ai.data.manager.ModelManager
 import com.kallistocore.ai.data.models.AIModelInfo
-import com.kallistocore.ai.data.models.ModelCategory
+import com.kallistocore.ai.domain.image.AspectRatioOption
 import com.kallistocore.ai.domain.image.ImageGenProgress
 import com.kallistocore.ai.domain.image.ImageStudioEngine
 import com.kallistocore.ai.domain.llm.LlmActionRequest
@@ -55,14 +55,14 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     val searchController = DeviceSearchController(application)
     val llmEngine = LlmInferenceEngine(application)
 
-    // UI Navigation & Theme State
+    // Navigation & Theme
     private val _currentTab = MutableStateFlow(MainTab.CHAT)
     val currentTab: StateFlow<MainTab> = _currentTab.asStateFlow()
 
     private val _currentTheme = MutableStateFlow(AppThemeSetting.MIDNIGHT_DARK)
     val currentTheme: StateFlow<AppThemeSetting> = _currentTheme.asStateFlow()
 
-    // Active Session & Chat Stream
+    // Active Session
     private val _currentSessionId = MutableStateFlow(UUID.randomUUID().toString())
     val currentSessionId: StateFlow<String> = _currentSessionId.asStateFlow()
 
@@ -82,26 +82,29 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Voice & Audio Settings
+    // Voice Settings
     val ttsPlaybackState: StateFlow<TtsPlaybackState> = ttsEngine.playbackState
     var selectedVoiceProfile = MutableStateFlow("af_heart (Warm American)")
     var speechSpeed = MutableStateFlow(1.0f)
     var speechPitch = MutableStateFlow(1.0f)
     var isVoiceAutoSpeak = MutableStateFlow(true)
 
-    // Image Studio / Img2Img State
+    // Image Studio Tool Settings
     val imageProgressState: StateFlow<ImageGenProgress> = imageStudio.progressState
     var selectedSourceImage = MutableStateFlow<Bitmap?>(null)
+    var selectedAspectRatio = MutableStateFlow(AspectRatioOption.SQUARE_1_1)
+    var selectedBaseResolution = MutableStateFlow(512) // 512, 768, 1024
+    var img2imgUpscaleMultiplier = MutableStateFlow(1.0f) // 0.75x, 1.0x, 1.5x, 2.0x
+    var forceSquareCrop = MutableStateFlow(false)
     var img2imgStrength = MutableStateFlow(0.75f)
 
-    // Memory & Hardware Settings
-    var allocatedMemoryBankMB = MutableStateFlow(1024) // 1 GB Default expandable
+    // Memory Allocation
+    var allocatedMemoryBankMB = MutableStateFlow(1024)
     var contextWindowSize = MutableStateFlow(4096)
     var cpuThreads = MutableStateFlow(6)
     var systemPrompt = MutableStateFlow("You are Kallisto, a sovereign, local, and helpful AI companion running offline.")
 
     init {
-        // Initialize Default Session
         viewModelScope.launch(Dispatchers.IO) {
             memoryDao.insertSession(
                 ConversationSessionEntity(
@@ -120,9 +123,6 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
         _currentTheme.value = theme
     }
 
-    /**
-     * Sends a message, retrieves memory & search tools, streams tokens, and synthesizes Kokoro audio.
-     */
     fun sendMessage(userText: String, sourceImage: Bitmap? = null) {
         if (userText.isBlank() && sourceImage == null) return
 
@@ -136,7 +136,6 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 userImagePath = savedInput.absolutePath
             }
 
-            // Save user message to database
             memoryDao.insertMessage(
                 MessageEntity(
                     id = userMsgId,
@@ -148,11 +147,15 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
             )
             memoryDao.updateSessionTimestamp(sessionId)
 
-            // If user attached an image and asked to edit/generate
+            // Image generation / editing trigger
             if (sourceImage != null || userText.startsWith("draw ") || userText.startsWith("generate image")) {
                 val generatedArt = imageStudio.generateOrEditImage(
                     prompt = userText,
                     inputImage = sourceImage,
+                    aspectRatio = selectedAspectRatio.value,
+                    baseResolution = selectedBaseResolution.value,
+                    upscaleMultiplier = img2imgUpscaleMultiplier.value,
+                    forceSquareCrop = forceSquareCrop.value,
                     strength = img2imgStrength.value
                 )
 
@@ -163,7 +166,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                             id = aiMsgId,
                             sessionId = sessionId,
                             role = "assistant",
-                            content = "I created/edited this image on-device for you.",
+                            content = "I processed your image request (${imageStudio.progressState.value.outputDimensions}) on-device.",
                             imageFilePath = generatedArt.absolutePath
                         )
                     )
@@ -171,7 +174,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
 
-            // Stream LLM Response with Autonomous Memory & Search
+            // Stream LLM
             val aiMsgId = UUID.randomUUID().toString()
             var accumulatedText = ""
 
@@ -188,7 +191,6 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             ).collect { token ->
                 accumulatedText += token
-                // Update active message in Room
                 memoryDao.insertMessage(
                     MessageEntity(
                         id = aiMsgId,
@@ -199,7 +201,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
 
-            // Synthesize voice via Kokoro TTS if enabled
+            // Kokoro Voice Audio Playback
             if (isVoiceAutoSpeak.value && accumulatedText.isNotBlank()) {
                 val audioFile = ttsEngine.synthesizeAndPlay(
                     text = accumulatedText,
@@ -235,9 +237,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun downloadModel(model: AIModelInfo) {
-        viewModelScope.launch(Dispatchers.IO) {
-            modelManager.downloadModel(model)
-        }
+        modelManager.downloadModel(model)
     }
 
     fun deleteModel(model: AIModelInfo) {
@@ -254,11 +254,5 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             memoryDao.pruneOldestLowPriorityMemories(100)
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        ttsEngine.release()
-        imageStudio.release()
     }
 }
