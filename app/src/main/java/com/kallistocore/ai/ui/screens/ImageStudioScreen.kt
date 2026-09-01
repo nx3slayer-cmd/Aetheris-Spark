@@ -64,7 +64,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
             progressState.state == ImageGenState.DENOISING_STEPS ||
             progressState.state == ImageGenState.POSTPROCESSING
 
-    // Auto-scroll to result when completed
+    // Auto-scroll to result when generated
     LaunchedEffect(progressState.generatedFile) {
         if (progressState.generatedFile != null) {
             listState.animateScrollToItem(index = 2)
@@ -140,7 +140,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                         }
                     }
                     Text(
-                        text = if (sourceBitmap != null) "Transform or AI-upscale your photo with custom styles & resolution." else "Generate artwork from prompts with customizable aspect ratios and resolution tiers.",
+                        text = if (sourceBitmap != null) "Transform, stylize, or AI-upscale your photo with custom styles & resolution." else "Generate visuals from text with customizable aspect ratios and resolution tiers.",
                         fontSize = 12.sp,
                         color = colors.textSecondary
                     )
@@ -196,7 +196,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
 
-            // Live Progress & Prominent Result Display Card
+            // Live Progress & Result Card
             if (progressState.generatedFile != null || isGenerating) {
                 item {
                     Column(
@@ -253,7 +253,7 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                                 Button(
                                     onClick = {
                                         viewModel.sendMessage(
-                                            userText = if (promptText.isNotBlank()) promptText else "Edited photo",
+                                            userText = if (promptText.isNotBlank()) promptText else "Generated artwork (${progressState.outputDimensions})",
                                             sourceImage = null
                                         )
                                     },
@@ -398,5 +398,34 @@ fun ImageStudioScreen(viewModel: CompanionViewModel) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ToolTrayPill(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = LocalKallistoColors.current
+    val bg = if (isSelected) colors.primary else colors.surface
+    val textCol = if (isSelected) colors.onPrimary else colors.textSecondary
+    val borderCol = if (isSelected) colors.primary else colors.border
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(bg)
+            .border(1.dp, borderCol, RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.5.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = textCol
+        )
     }
 }
